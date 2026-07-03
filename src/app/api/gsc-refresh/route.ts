@@ -4,24 +4,23 @@ import { getGoogleAccessToken } from '@/lib/google-auth'
 
 export const dynamic = 'force-dynamic'
 
-const GA4_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly'
+const GSC_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly'
 const DAYS = 30
 
-async function fetchGA4(propertyId: string, token: string) {
+async function fetchGSC(domain: string, token: string) {
+  const siteUrl = `sc-domain:${domain.replace(/^www\./, '')}`
+  const endDate = new Date().toISOString().split('T')[0]
+  const startDate = new Date(Date.now() - DAYS * 86400000).toISOString().split('T')[0]
+
   const res = await fetch(
-    `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+    `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dateRanges: [{ startDate: `${DAYS}daysAgo`, endDate: 'today' }],
-        metrics: [
-          { name: 'activeUsers' },
-          { name: 'sessions' },
-          { name: 'screenPageViews' },
-          { name: 'averageSessionDuration' },
-          { name: 'bounceRate' },
-        ],
+        startDate,
+        endDate,
+        rowLimit: 1,
       }),
       next: { revalidate: 0 },
     }
@@ -29,26 +28,22 @@ async function fetchGA4(propertyId: string, token: string) {
 
   if (!res.ok) {
     const err = await res.text()
-    throw new Error(`GA4 ${propertyId} → ${res.status}: ${err.slice(0, 200)}`)
+    throw new Error(`GSC ${domain} → ${res.status}: ${err.slice(0, 200)}`)
   }
 
   const data = await res.json()
-  const row = data.rows?.[0]?.metricValues
-  if (!row) return null
+  // Aggregate totals are in the first row when no dimensions are specified
+  const totals = data.rows?.[0]
 
-  const [users, sessions, views, duration, bounce] = row.map((v: { value: string }) => parseFloat(v.value) || 0)
-  const today = new Date().toISOString().split('T')[0]
-  const start = new Date(Date.now() - DAYS * 86400000).toISOString().split('T')[0]
+  if (!totals) return null
 
   return {
-    period_start: start,
-    period_end: today,
-    users: Math.round(users),
-    sessions: Math.round(sessions),
-    visits: Math.round(views),
-    avg_session_duration: duration,
-    bounce_rate: bounce,
-    new_users: 0,
+    period_start: startDate,
+    period_end: endDate,
+    clicks: Math.round(totals.clicks ?? 0),
+    impressions: Math.round(totals.impressions ?? 0),
+    ctr: totals.ctr ?? 0,
+    avg_position: totals.position ?? 0,
   }
 }
 
@@ -60,16 +55,15 @@ export async function POST() {
   const sb = createClient(url, key)
   const { data: portcos, error } = await sb
     .from('portcos')
-    .select('id, name, ga4_property_id')
-    .not('ga4_property_id', 'is', null)
+    .select('id, name, domain')
 
   if (error || !portcos?.length) {
-    return NextResponse.json({ error: 'No portcos with ga4_property_id configured' }, { status: 404 })
+    return NextResponse.json({ error: 'Could not load portcos' }, { status: 500 })
   }
 
   let token: string
   try {
-    token = await getGoogleAccessToken([GA4_SCOPE])
+    token = await getGoogleAccessToken([GSC_SCOPE])
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
@@ -78,14 +72,14 @@ export async function POST() {
 
   for (const portco of portcos) {
     try {
-      const payload = await fetchGA4(portco.ga4_property_id, token)
+      const payload = await fetchGSC(portco.domain, token)
       if (!payload) {
         results.push({ name: portco.name, status: 'no data' })
         continue
       }
 
-      await sb.from('analytics_uploads').delete().eq('portco_id', portco.id)
-      const { error: insertErr } = await sb.from('analytics_uploads').insert({
+      await sb.from('search_console_uploads').delete().eq('portco_id', portco.id)
+      const { error: insertErr } = await sb.from('search_console_uploads').insert({
         portco_id: portco.id,
         ...payload,
       })

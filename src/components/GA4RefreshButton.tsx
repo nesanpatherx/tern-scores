@@ -35,7 +35,7 @@ export default function GA4RefreshButton() {
   }
 
   return (
-    <div>
+    <div className="relative">
       <button
         onClick={handleRefresh}
         disabled={state === 'loading'}
@@ -43,6 +43,7 @@ export default function GA4RefreshButton() {
         style={{
           background: state === 'done' ? '#22c55e' : '#1a1a18',
           color: '#ffffff',
+          border: '1px solid transparent',
         }}
       >
         {state === 'loading' && (
@@ -59,7 +60,7 @@ export default function GA4RefreshButton() {
 
       {summary && (
         <div
-          className="mt-2 text-xs px-3 py-2"
+          className="absolute right-0 top-9 z-50 text-xs px-3 py-2 min-w-[220px]"
           style={{
             background: state === 'error' ? '#fff8f5' : '#f7f4f0',
             color: state === 'error' ? '#eb5c32' : '#4a4a48',

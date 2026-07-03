@@ -6,6 +6,7 @@ import Link from 'next/link'
 import PipedriveRefreshButton from '@/components/PipedriveRefreshButton'
 import SemrushRefreshButton from '@/components/SemrushRefreshButton'
 import HubspotRefreshButton from '@/components/HubspotRefreshButton'
+import GA4RefreshButton from '@/components/GA4RefreshButton'
 import GroupedTables from '@/components/GroupedTables'
 import MetricFAQ from '@/components/MetricFAQ'
 import {
@@ -233,7 +234,7 @@ export default async function DashboardPage() {
             {rows.length} companies
           </span>
           <SemrushRefreshButton />
-          <V2Button label="Refresh GA4" />
+          <GA4RefreshButton />
           <HubspotRefreshButton />
           <PipedriveRefreshButton />
           <Link

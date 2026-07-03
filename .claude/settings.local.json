@@ -5,7 +5,18 @@
       "Bash(npx tsc *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npm run *)",
+      "mcp__913d3f6b-6be4-42f9-98e1-159966ddd2a9__list_projects",
+      "mcp__913d3f6b-6be4-42f9-98e1-159966ddd2a9__execute_sql",
+      "Bash(findstr SUPABASE_URL)",
+      "Bash(Get-Content \"D:\\\\Claude Code\\\\Claude Tern Dash\\\\.env.local\")",
+      "Bash(Select-String \"SUPABASE_URL\")",
+      "mcp__913d3f6b-6be4-42f9-98e1-159966ddd2a9__apply_migration",
+      "mcp__Claude_in_Chrome__get_page_text",
+      "PowerShell(New-Item -ItemType Directory -Force \"D:\\\\Claude Code\\\\Claude Tern Dash\\\\src\\\\app\\\\api\\\\ga4-refresh\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"D:\\\\Claude Code\\\\Claude Tern Dash\\\\src\\\\app\\\\api\\\\gsc-refresh\")",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
