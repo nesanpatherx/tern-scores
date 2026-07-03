@@ -41,7 +41,7 @@ export default function HubspotRefreshButton() {
   }
 
   return (
-    <div>
+    <div className="relative">
       <button
         onClick={handleRefresh}
         disabled={state === 'loading'}
@@ -66,14 +66,11 @@ export default function HubspotRefreshButton() {
 
       {summary && (
         <div
-          className="mt-2 text-xs px-3 py-2 max-w-sm"
+          className="absolute right-0 top-9 z-50 text-xs px-3 py-2 min-w-[260px] max-w-sm"
           style={{
             background: state === 'error' ? '#fff8f5' : '#f7f4f0',
             color: state === 'error' ? '#eb5c32' : '#4a4a48',
             border: '1px solid #d9d9d9',
-            position: 'absolute',
-            zIndex: 50,
-            right: 0,
           }}
         >
           {summary}
