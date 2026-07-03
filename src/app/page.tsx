@@ -5,6 +5,7 @@ import { unstable_noStore as noStore } from 'next/cache'
 import Link from 'next/link'
 import PipedriveRefreshButton from '@/components/PipedriveRefreshButton'
 import SemrushRefreshButton from '@/components/SemrushRefreshButton'
+import HubspotRefreshButton from '@/components/HubspotRefreshButton'
 import GroupedTables from '@/components/GroupedTables'
 import MetricFAQ from '@/components/MetricFAQ'
 import {
@@ -233,7 +234,7 @@ export default async function DashboardPage() {
           </span>
           <SemrushRefreshButton />
           <V2Button label="Refresh GA4" />
-          <V2Button label="Refresh HubSpot" />
+          <HubspotRefreshButton />
           <PipedriveRefreshButton />
           <Link
             href="/bulk-upload"
