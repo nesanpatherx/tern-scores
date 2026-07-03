@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 export const dynamic = 'force-dynamic'
 
 const HUBSPOT_KEY = process.env.HUBSPOT_KEY_NMETROFY
-const NMETROFY_NAME = 'Nmetrofy'
+const NMETROFY_NAME = 'Metrofy'
 
 // Comma-separated stage internal names/IDs that count as MQL and SQL.
 // Set HUBSPOT_MQL_STAGES and HUBSPOT_SQL_STAGES in Vercel once you know the stage names.
