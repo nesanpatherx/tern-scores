@@ -26,13 +26,7 @@ type Group = { group: string; rows: PortcoRow[] }
 
 function Dash() {
   return (
-    <span title="No data" style={{ color: C.lightGrey, display: 'inline-flex', alignItems: 'center' }}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-        <line x1="4" y1="4" x2="20" y2="20"/>
-      </svg>
-    </span>
+    <span title="No data" style={{ color: C.lightGrey }}>—</span>
   )
 }
 
@@ -41,7 +35,7 @@ function Cell({ children, className = '', divider = false, style }: {
 }) {
   return (
     <td
-      className={`px-3 py-3 text-right text-xs whitespace-nowrap font-mono ${className}`}
+      className={`px-2 py-2 text-right text-[11px] whitespace-nowrap font-mono ${className}`}
       style={{ ...(divider ? { borderLeft: `1px solid ${C.lightGrey}` } : {}), ...style }}
     >
       {children}
@@ -52,7 +46,7 @@ function Cell({ children, className = '', divider = false, style }: {
 function ColHead({ children, divider = false }: { children: React.ReactNode; divider?: boolean }) {
   return (
     <th
-      className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest whitespace-nowrap"
+      className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap"
       style={{ color: C.darkGrey, borderLeft: divider ? `1px solid ${C.lightGrey}` : undefined }}
     >
       {children}
@@ -66,7 +60,7 @@ function TableHead() {
       <tr style={{ borderBottom: `1px solid ${C.lightGrey}` }}>
         <th
           rowSpan={2}
-          className="text-left px-4 py-2 text-[10px] font-semibold uppercase tracking-widest sticky left-0 z-10 min-w-[190px]"
+          className="text-left px-3 py-2 text-[9px] font-semibold uppercase tracking-wider sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px]"
           style={{ background: C.offWhite, color: C.darkGrey, borderRight: `1px solid ${C.lightGrey}` }}
         >
           Company
@@ -74,13 +68,13 @@ function TableHead() {
         {[
           { label: 'SEMrush', cols: 4 },
           { label: 'Search Console', cols: 4 },
-          { label: 'Google Analytics', cols: 5 },
+          { label: 'Analytics', cols: 5 },
           { label: 'Sales Funnel', cols: 4 },
         ].map(g => (
           <th
             key={g.label}
             colSpan={g.cols}
-            className="py-2 text-center text-[10px] font-semibold uppercase tracking-widest"
+            className="py-1.5 text-center text-[9px] font-semibold uppercase tracking-wider"
             style={{ borderLeft: `1px solid ${C.lightGrey}`, background: C.offWhite, color: C.charcoal }}
           >
             {g.label}
@@ -90,21 +84,21 @@ function TableHead() {
       <tr style={{ borderBottom: `2px solid ${C.nearBlack}`, background: C.offWhite }}>
         <ColHead divider>Auth¹</ColHead>
         <ColHead>Traffic²</ColHead>
-        <ColHead>Keywords³</ColHead>
-        <ColHead>Backlinks⁴</ColHead>
+        <ColHead>KWs³</ColHead>
+        <ColHead>Links⁴</ColHead>
         <ColHead divider>Clicks⁵</ColHead>
-        <ColHead>Impr.⁶</ColHead>
+        <ColHead>Impr⁶</ColHead>
         <ColHead>CTR⁷</ColHead>
-        <ColHead>Position⁸</ColHead>
+        <ColHead>Pos⁸</ColHead>
         <ColHead divider>Users⁹</ColHead>
         <ColHead>Sessions¹⁰</ColHead>
-        <ColHead>Visits¹¹</ColHead>
-        <ColHead>Time on site¹²</ColHead>
+        <ColHead>Views¹¹</ColHead>
+        <ColHead>Time¹²</ColHead>
         <ColHead>Bounce¹³</ColHead>
         <ColHead divider>MQLs¹⁴</ColHead>
         <ColHead>SQLs¹⁵</ColHead>
         <ColHead>Pipeline¹⁶</ColHead>
-        <ColHead>Avg deal¹⁷</ColHead>
+        <ColHead>Avg¹⁷</ColHead>
       </tr>
     </thead>
   )
@@ -115,24 +109,24 @@ function CompanyRow({ portco, sc, ga, sem, funnel }: PortcoRow) {
     .filter(Boolean).sort().pop()
   const hasData = sc || ga || sem || funnel
   return (
-    <tr className="group transition-colors" style={{ borderBottom: `1px solid ${C.offWhite}` }}>
+    <tr className="group transition-colors hover:bg-[#faf9f7]" style={{ borderBottom: `1px solid ${C.offWhite}` }}>
       <td
-        className="px-4 py-3 sticky left-0 bg-white group-hover:bg-[#f7f4f0] transition-colors"
+        className="px-3 py-2 sticky left-0 bg-white group-hover:bg-[#faf9f7] transition-colors w-[160px] min-w-[160px] max-w-[160px]"
         style={{ borderRight: `1px solid ${C.lightGrey}` }}
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 min-w-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`https://www.google.com/s2/favicons?sz=32&domain=${portco.domain}`} alt="" className="w-4 h-4 shrink-0" style={{ opacity: 0.7 }} />
-          <div>
-            <div className="font-semibold text-sm leading-tight" style={{ color: C.nearBlack }}>{portco.name}</div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <a href={`https://${portco.domain}`} target="_blank" rel="noopener noreferrer" className="text-[11px] hover:underline" style={{ color: C.darkGrey }}>
+          <img src={`https://www.google.com/s2/favicons?sz=32&domain=${portco.domain}`} alt="" className="w-3.5 h-3.5 shrink-0" style={{ opacity: 0.7 }} />
+          <div className="min-w-0">
+            <div className="font-semibold text-[12px] leading-tight truncate" style={{ color: C.nearBlack }}>{portco.name}</div>
+            <div className="flex items-center gap-1 mt-0.5">
+              <a href={`https://${portco.domain}`} target="_blank" rel="noopener noreferrer" className="text-[10px] hover:underline truncate block" style={{ color: C.darkGrey }}>
                 {portco.domain}
               </a>
-              {rowLastUpdated && <span className="text-[11px]" style={{ color: C.lightGrey }}>· {fmtDate(rowLastUpdated)}</span>}
+              {rowLastUpdated && <span className="text-[10px] shrink-0" style={{ color: C.lightGrey }}>· {fmtDate(rowLastUpdated)}</span>}
             </div>
             {!hasData && (
-              <Link href={`/upload?company=${portco.id}`} className="text-[11px] hover:underline mt-0.5 inline-block" style={{ color: C.orange }}>
+              <Link href={`/upload?company=${portco.id}`} className="text-[10px] hover:underline mt-0.5 inline-block" style={{ color: C.orange }}>
                 + Add data
               </Link>
             )}
@@ -144,7 +138,7 @@ function CompanyRow({ portco, sc, ga, sem, funnel }: PortcoRow) {
         {sem && sem.organic_traffic
           ? fmtNum(sem.organic_traffic)
           : sc?.clicks
-          ? <span>{fmtNum(sc.clicks)}<sup style={{ fontSize: '8px', color: C.darkGrey, marginLeft: '2px' }}>GSC</sup></span>
+          ? <span>{fmtNum(sc.clicks)}<sup style={{ fontSize: '7px', color: C.darkGrey, marginLeft: '1px' }}>GSC</sup></span>
           : sem ? 0 : <Dash />}
       </Cell>
       <Cell style={{ color: C.charcoal }}>{sem ? (sem.organic_keywords ? fmtNum(sem.organic_keywords) : 0) : <Dash />}</Cell>
@@ -172,16 +166,16 @@ function GroupTable({ group, rows }: Group) {
     <div style={{ background: '#ffffff', border: `1px solid ${C.lightGrey}` }}>
       <button
         onClick={() => setCollapsed(c => !c)}
-        className="w-full px-5 py-3 flex items-center justify-between transition-colors hover:opacity-90"
+        className="w-full px-4 py-2.5 flex items-center justify-between transition-colors hover:opacity-90"
         style={{ background: C.nearBlack, borderBottom: collapsed ? 'none' : `1px solid ${C.lightGrey}` }}
       >
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold" style={{ color: '#ffffff' }}>{group}</span>
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{rows.length} companies</span>
+          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{rows.length} companies</span>
         </div>
         <div className="flex items-center gap-4">
           {!collapsed && (
-            <div className="flex items-center gap-4 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            <div className="flex items-center gap-3 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
               <span><span style={{ color: '#22c55e' }}>●</span> Good</span>
               <span><span style={{ color: '#f59e0b' }}>●</span> Mid</span>
               <span><span style={{ color: '#ef4444' }}>●</span> Weak</span>
@@ -192,7 +186,7 @@ function GroupTable({ group, rows }: Group) {
       </button>
       {!collapsed && (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse" style={{ tableLayout: 'fixed', minWidth: '100%' }}>
             <TableHead />
             <tbody>
               {rows.map(r => <CompanyRow key={r.portco.id} {...r} />)}
@@ -206,7 +200,7 @@ function GroupTable({ group, rows }: Group) {
 
 export default function GroupedTables({ groups }: { groups: Group[] }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {groups.map(g => <GroupTable key={g.group} {...g} />)}
     </div>
   )

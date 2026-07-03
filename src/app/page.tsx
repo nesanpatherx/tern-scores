@@ -246,7 +246,7 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 py-6 max-w-[1600px] mx-auto">
+      <main className="px-4 sm:px-6 py-5 w-full">
         {!isConfigured && (
           <div
             className="mb-5 px-5 py-4 text-sm"
