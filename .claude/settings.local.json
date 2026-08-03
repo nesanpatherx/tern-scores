@@ -16,7 +16,8 @@
       "mcp__Claude_in_Chrome__get_page_text",
       "PowerShell(New-Item -ItemType Directory -Force \"D:\\\\Claude Code\\\\Claude Tern Dash\\\\src\\\\app\\\\api\\\\ga4-refresh\")",
       "PowerShell(New-Item -ItemType Directory -Force \"D:\\\\Claude Code\\\\Claude Tern Dash\\\\src\\\\app\\\\api\\\\gsc-refresh\")",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(cp \"/c/Users/nesan/AppData/Local/Temp/claude/D--Claude-Code-Claude-Tern-Dash/9ba51e30-f9bb-49c4-9269-946e6af71553/scratchpad/thrive-local-plus-sales-guide.html\" \"/d/Claude Code/Claude Tern Dash/_verify_preview.html\")"
     ]
   }
 }
