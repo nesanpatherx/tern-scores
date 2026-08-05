@@ -80,7 +80,7 @@ export default async function ScoresDashboard() {
     ? Math.round(scored.reduce((s, r) => s + r.score.total, 0) / scored.length)
     : 0
   const topScore = scored[0]?.score.total ?? 0
-  const withData = scored.filter(r => r.sem || r.sc || r.ga).length
+  const allThreeSources = scored.filter(r => r.sem && r.sc && r.ga).length
 
   const allUploadDates = rows.flatMap(r => [r.sc?.uploaded_at, r.ga?.uploaded_at, r.sem?.uploaded_at]).filter(Boolean) as string[]
   const lastUpdated = allUploadDates.length
@@ -124,13 +124,15 @@ export default async function ScoresDashboard() {
           <StatCard label="Portfolio companies" value={rows.length} />
           <StatCard label="Avg performance score" value={avgScore} sub="out of 100" accent />
           <StatCard label="Top score" value={topScore} sub={scored[0]?.portco.name ?? ''} accent />
-          <StatCard label="Companies with data" value={`${withData} / ${rows.length}`} sub="scored portcos" />
+          <StatCard label="Reporting all sources" value={`${allThreeSources} / ${rows.length}`} sub="SEMrush + GSC + GA4" />
         </div>
 
         <ScoresTable groups={grouped} />
 
         <div className="mt-6 text-xs" style={{ color: C.darkGrey }}>
-          <p><strong style={{ color: C.charcoal }}>Score methodology:</strong> Each portco is scored out of 100 across three sources — SEMrush (40pts: authority, traffic, keywords, backlinks), Search Console (35pts: clicks, CTR, position), and GA4 (25pts: users, bounce rate, time on site). Scores are absolute against fixed benchmarks, not relative to other portcos.</p>
+          <p><strong style={{ color: C.charcoal }}>Score methodology:</strong> Each portco is scored out of 100 across three sources — SEMrush (40pts: authority, traffic, keywords, backlinks), Search Console (35pts: clicks, CTR, position), and GA4 (25pts: users, bounce rate, time on site). Each metric scores linearly against a fixed benchmark, so scores are absolute rather than ranked against other portcos.</p>
+          <p className="mt-2"><strong style={{ color: C.charcoal }}>Missing data is excluded, not penalised.</strong> A portco is scored only against the sources that reported, then normalised to 100 — so a company with SEMrush data alone is judged on those 40 points scaled up, rather than forfeiting the other 60. The badge beside a score shows how much of the full basis was measurable; treat a sub-100% score as a narrower judgement. Click any row for the per-metric breakdown.</p>
+          <p className="mt-2"><strong style={{ color: C.charcoal }}>Known gap:</strong> the stored GA4 uploads record sessions but not users, so the users metric (10pts) is currently excluded for every portco with GA4 data — capping their basis at 90%. Re-uploading the GA4 exports, or running the GA4 API refresh, will restore it.</p>
         </div>
       </main>
     </div>

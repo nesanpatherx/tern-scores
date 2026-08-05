@@ -40,18 +40,6 @@ export type GAUpload = {
   uploaded_at: string
 }
 
-export type FunnelUpload = {
-  id: string
-  portco_id: string
-  period_start: string | null
-  period_end: string | null
-  mqls: number
-  sqls: number
-  pipeline_arr: number
-  avg_deal_value: number
-  uploaded_at: string
-}
-
 export type SEMUpload = {
   id: string
   portco_id: string

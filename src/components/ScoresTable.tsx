@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { fmtNum, fmtPct, fmtPos, fmtDate, fmtDuration } from '@/lib/format'
 import type { PortcoDB, SCUpload, GAUpload, SEMUpload } from '@/lib/supabase'
-import type { ScoreBreakdown } from '@/lib/score'
+import { METRIC_POINTS, SOURCE_WEIGHTS, type ScoreBreakdown } from '@/lib/score'
 
 const C = {
   orange: '#eb5c32',
@@ -24,6 +24,9 @@ type ScoredRow = {
 
 type Group = { group: string; rows: ScoredRow[] }
 
+type MetricItem = { name: string; pts: number; max: number; excluded?: boolean }
+type MetricGroup = { label: string; present: boolean; weight: number; items: MetricItem[] }
+
 function Dash() {
   return (
     <span title="No data" style={{ color: C.lightGrey, display: 'inline-flex', alignItems: 'center' }}>
@@ -36,14 +39,23 @@ function Dash() {
   )
 }
 
-function ScoreBar({ score }: { score: number }) {
+function ScoreBar({ score, coverage }: { score: number; coverage: number }) {
   const color = score >= 70 ? '#22c55e' : score >= 40 ? '#f59e0b' : '#ef4444'
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full" style={{ background: C.lightGrey, minWidth: 60 }}>
+      <div className="flex-1 h-1.5 rounded-full" style={{ background: C.lightGrey, minWidth: 48 }}>
         <div className="h-1.5 rounded-full transition-all" style={{ width: `${score}%`, background: color }} />
       </div>
       <span className="text-[11px] font-mono font-bold w-6 text-right" style={{ color }}>{score}</span>
+      {coverage < 100 && (
+        <span
+          title={`Scored on ${coverage}% of sources — missing data is excluded rather than penalised`}
+          className="text-[9px] font-mono px-1 shrink-0"
+          style={{ color: C.darkGrey, border: `1px solid ${C.lightGrey}`, borderRadius: 2 }}
+        >
+          {coverage}%
+        </span>
+      )}
     </div>
   )
 }
@@ -108,8 +120,8 @@ function CompanyRow({ portco, sc, ga, sem, score }: ScoredRow) {
             </div>
           </div>
         </td>
-        <td className="px-3 py-2 w-[130px]" style={{ borderLeft: `1px solid ${C.lightGrey}` }}>
-          <ScoreBar score={score.total} />
+        <td className="px-3 py-2 w-[150px]" style={{ borderLeft: `1px solid ${C.lightGrey}` }}>
+          <ScoreBar score={score.total} coverage={score.coverage} />
         </td>
         <Cell divider style={{ color: score.authority > 0 ? C.charcoal : undefined }}>{sem ? (sem.authority_score ?? 0) : <Dash />}</Cell>
         <Cell style={{ color: C.charcoal }}>
@@ -133,39 +145,65 @@ function CompanyRow({ portco, sc, ga, sem, score }: ScoredRow) {
         <tr style={{ background: '#fafaf9', borderBottom: `1px solid ${C.lightGrey}` }}>
           <td colSpan={13} className="px-4 py-3">
             <div className="grid grid-cols-3 gap-6 text-[11px]">
-              {[
-                { label: 'SEMrush', items: [
-                  { name: 'Authority', pts: score.authority, max: 15 },
-                  { name: 'Traffic', pts: score.traffic, max: 15 },
-                  { name: 'Keywords', pts: score.keywords, max: 5 },
-                  { name: 'Backlinks', pts: score.backlinks, max: 5 },
+              {([
+                { label: 'SEMrush', present: !!sem, weight: SOURCE_WEIGHTS.sem, items: [
+                  { name: 'Authority', pts: score.authority, max: METRIC_POINTS.authority },
+                  { name: 'Traffic', pts: score.traffic, max: METRIC_POINTS.traffic },
+                  { name: 'Keywords', pts: score.keywords, max: METRIC_POINTS.keywords },
+                  { name: 'Backlinks', pts: score.backlinks, max: METRIC_POINTS.backlinks },
                 ]},
-                { label: 'Search Console', items: [
-                  { name: 'Clicks', pts: score.clicks, max: 10 },
-                  { name: 'CTR', pts: score.ctr, max: 10 },
-                  { name: 'Position', pts: score.position, max: 10 },
+                { label: 'Search Console', present: !!sc, weight: SOURCE_WEIGHTS.sc, items: [
+                  { name: 'Clicks', pts: score.clicks, max: METRIC_POINTS.clicks },
+                  { name: 'CTR', pts: score.ctr, max: METRIC_POINTS.ctr },
+                  { name: 'Position', pts: score.position, max: METRIC_POINTS.position },
                 ]},
-                { label: 'GA4', items: [
-                  { name: 'Users', pts: score.users, max: 8 },
-                  { name: 'Bounce rate', pts: score.bounce, max: 7 },
-                  { name: 'Time on site', pts: score.timeOnSite, max: 5 },
+                { label: 'GA4', present: !!ga, weight: SOURCE_WEIGHTS.ga, items: [
+                  { name: 'Users', pts: score.users, max: METRIC_POINTS.users, excluded: score.usersExcluded },
+                  { name: 'Bounce rate', pts: score.bounce, max: METRIC_POINTS.bounce },
+                  { name: 'Time on site', pts: score.timeOnSite, max: METRIC_POINTS.timeOnSite },
                 ]},
-              ].map(group => (
-                <div key={group.label}>
-                  <div className="font-semibold mb-2" style={{ color: C.charcoal }}>{group.label}</div>
+              ] as MetricGroup[]).map(group => {
+                const dropped = group.items.reduce((s, i) => s + (i.excluded ? i.max : 0), 0)
+                return (
+                <div key={group.label} style={{ opacity: group.present ? 1 : 0.45 }}>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="font-semibold" style={{ color: C.charcoal }}>{group.label}</span>
+                    <span className="text-[10px]" style={{ color: C.darkGrey }}>
+                      {!group.present
+                        ? 'no data — excluded'
+                        : dropped > 0
+                        ? `${group.weight - dropped} of ${group.weight}pts`
+                        : `${group.weight}pts`}
+                    </span>
+                  </div>
                   <div className="space-y-2">
                     {group.items.map(item => (
-                      <div key={item.name} className="flex items-center gap-2">
+                      <div key={item.name} className="flex items-center gap-2" style={{ opacity: item.excluded ? 0.4 : 1 }}>
                         <span className="w-20 shrink-0" style={{ color: C.darkGrey }}>{item.name}</span>
                         <div className="flex-1 h-1 rounded-full" style={{ background: C.lightGrey }}>
-                          <div className="h-1 rounded-full" style={{ width: `${(item.pts / item.max) * 100}%`, background: C.orange }} />
+                          {!item.excluded && (
+                            <div className="h-1 rounded-full" style={{ width: `${(item.pts / item.max) * 100}%`, background: C.orange }} />
+                          )}
                         </div>
-                        <span className="font-mono w-8 text-right" style={{ color: C.charcoal }}>{item.pts}/{item.max}</span>
+                        <span className="font-mono w-8 text-right" style={{ color: C.charcoal }}>
+                          {item.excluded ? 'excl.' : `${item.pts}/${item.max}`}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
-              ))}
+                )
+              })}
+            </div>
+            <div className="mt-3 pt-3 text-[11px]" style={{ borderTop: `1px solid ${C.lightGrey}`, color: C.darkGrey }}>
+              <span className="font-mono" style={{ color: C.charcoal }}>{score.raw}/{score.available}</span>
+              {' '}points earned
+              {score.coverage < 100 && <> · scored on <span style={{ color: C.charcoal }}>{score.coverage}%</span> of the full basis</>}
+              {' → '}
+              <span className="font-mono font-bold" style={{ color: C.charcoal }}>{score.total}/100</span>
+              {score.excluded.length > 0 && (
+                <span> · excluded: {score.excluded.join(', ')}</span>
+              )}
             </div>
           </td>
         </tr>
@@ -202,7 +240,7 @@ function GroupTable({ group, rows }: Group) {
               <tr style={{ borderBottom: `1px solid ${C.lightGrey}` }}>
                 <th rowSpan={2} className="text-left px-3 py-2 text-[9px] font-semibold uppercase tracking-wider sticky left-0 z-10 w-[170px]"
                   style={{ background: C.offWhite, color: C.darkGrey, borderRight: `1px solid ${C.lightGrey}` }}>Company</th>
-                <th rowSpan={2} className="px-3 py-2 text-[9px] font-semibold uppercase tracking-wider w-[130px]"
+                <th rowSpan={2} className="px-3 py-2 text-[9px] font-semibold uppercase tracking-wider w-[150px]"
                   style={{ borderLeft: `1px solid ${C.lightGrey}`, background: C.offWhite, color: C.charcoal }}>Score /100</th>
                 {[{ label: 'SEMrush', cols: 4 }, { label: 'Search Console', cols: 3 }, { label: 'GA4', cols: 3 }].map(g => (
                   <th key={g.label} colSpan={g.cols} className="py-1.5 text-center text-[9px] font-semibold uppercase tracking-wider"
