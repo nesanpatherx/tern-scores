@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { METRICS, METRIC_HELP, PILLARS, TOTAL_POINTS, type MetricKey, type PillarKey } from '@/lib/score'
-import { LATEST_MONTH, BASELINE_MONTH } from '@/lib/data'
+import { LATEST_MONTH, BASELINE_MONTH, MEASUREMENT_START } from '@/lib/data'
 import { monthLabel } from '@/lib/format'
 
 const C = {
@@ -95,16 +95,21 @@ export default function MethodologyNote() {
               scale keeps the mid-range separated so early progress on a smaller site still registers.
             </p>
             <p>
-              <strong style={{ color: C.body }}>Year to date</strong> compares{' '}
-              {monthLabel(BASELINE_MONTH)} with {monthLabel(LATEST_MONTH)}. Link metrics are a current
-              snapshot, so they carry no YTD figure.
+              <strong style={{ color: C.body }}>Two comparison periods.</strong>{' '}
+              <em>Year to date</em> compares {monthLabel(BASELINE_MONTH)} with {monthLabel(LATEST_MONTH)}.
+              Active measurement and optimisation only began in {monthLabel(MEASUREMENT_START)}, so the
+              first quarter of the year predates that work — a <em>since {monthLabel(MEASUREMENT_START)}</em>{' '}
+              figure is shown alongside it wherever movement is reported, and that is the fairer read on
+              what the work has achieved. Link metrics are a current snapshot and carry no trend.
             </p>
             <p>
-              <strong style={{ color: C.body }}>Source.</strong> SEMrush UK database for every company —
-              Domain Overview history for search and AI figures, Backlinks Overview for authority and links.
-              SEMrush recalculates monthly, and {monthLabel(LATEST_MONTH)} is the latest complete month.
-              Bands: 60+ Strong · 35–59 Developing · under 35 Needs work. A zero is a real result, not
-              missing data.
+              <strong style={{ color: C.body }}>Source.</strong> SEMrush — Domain Overview history for
+              search and AI figures, Backlinks Overview for authority and links. Measured on the UK
+              database, with one exception: StoreSpace Insights sells into the US, where its figures are
+              roughly ten times its UK ones, so it is measured on the US database and labelled as such in
+              its row. SEMrush recalculates monthly and {monthLabel(LATEST_MONTH)} is the latest complete
+              month. Bands: 60+ Strong · 35–59 Developing · under 35 Needs work. A zero is a real result,
+              not missing data.
             </p>
           </div>
         </div>

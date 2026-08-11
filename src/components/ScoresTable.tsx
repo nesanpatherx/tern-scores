@@ -175,7 +175,10 @@ function Row({ s, isLast }: { s: Scored; isLast: boolean }) {
                   {s.baseline[H.aiOverview]} → {s.latest[H.aiOverview]}
                 </span>
               </span>
-              <span>SEMrush UK database</span>
+              <span>
+                SEMrush <span style={{ color: C.body }}>{record.database.toUpperCase()}</span> database
+                {record.database === 'us' && ' — sells into the US, so UK figures would understate it'}
+              </span>
             </div>
           </td>
         </tr>

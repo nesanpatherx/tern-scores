@@ -2,7 +2,7 @@ import ScoreCards from '@/components/ScoreCards'
 import ScoresTable from '@/components/ScoresTable'
 import AiVisibility from '@/components/AiVisibility'
 import MethodologyNote from '@/components/MethodologyNote'
-import { PORTFOLIO, DATA_AS_OF, H } from '@/lib/data'
+import { PORTFOLIO, DATA_AS_OF, MEASUREMENT_START, H } from '@/lib/data'
 import { GROUP_ORDER } from '@/lib/portcos'
 import { scorePortfolio, scoreBand } from '@/lib/score'
 import { compact, signedPct, monthLabel } from '@/lib/format'
@@ -72,6 +72,13 @@ export default function Page() {
   const baseAi = scored.reduce((s, r) => s + r.baseline[H.aiOverview], 0)
   const aiPct = baseAi > 0 ? ((latestAi - baseAi) / baseAi) * 100 : null
 
+  // The same totals measured from the month work actually began.
+  const measuredTraffic = scored.reduce((s, r) => s + r.measured[H.traffic], 0)
+  const measuredAi = scored.reduce((s, r) => s + r.measured[H.aiOverview], 0)
+  const trafficSincePct = measuredTraffic > 0 ? ((latestTraffic - measuredTraffic) / measuredTraffic) * 100 : null
+  const aiSincePct = measuredAi > 0 ? ((latestAi - measuredAi) / measuredAi) * 100 : null
+  const sincePeriod = `${monthLabel(MEASUREMENT_START)} → ${monthLabel(scored[0].latest[H.month])}`
+
   // Growth from a zero base has no percentage but is still growth, so it counts here.
   const growing = scored.filter(r => {
     const from = r.baseline[H.traffic]
@@ -132,9 +139,28 @@ export default function Page() {
             <strong style={{ color: C.ink }}>This is year-to-date data for 2026 — {period}.</strong>{' '}
             Every company is scored out of 100 across three pillars: classic search, visibility inside
             AI answers, and domain authority. Every percentage change on this page measures movement
-            since the start of the year, not month on month. All figures come from SEMrush&apos;s UK
-            database, so each company is measured on exactly the same basis.
+            since the start of the year, not month on month. Figures come from SEMrush, measured on the
+            UK database throughout.
           </p>
+        </div>
+
+        <div
+          className="mb-5 px-4 py-3 rounded-lg text-[12px] leading-relaxed max-w-[860px]"
+          style={{ background: '#fff', border: `1px solid ${C.line}`, borderLeft: `3px solid ${C.orange}` }}
+        >
+          <strong style={{ color: C.ink }}>Reading the year-to-date numbers.</strong>{' '}
+          Active measurement and optimisation began in {monthLabel(MEASUREMENT_START)}. The first
+          quarter of 2026 therefore predates that work, and a good part of the full-year decline sits
+          in those months. Since {sincePeriod}, portfolio organic traffic is{' '}
+          <strong style={{ color: (trafficSincePct ?? 0) >= 0 ? C.up : C.down }}>
+            {trafficSincePct !== null ? signedPct(trafficSincePct) : 'flat'}
+          </strong>{' '}
+          and AI Overview citations are{' '}
+          <strong style={{ color: (aiSincePct ?? 0) >= 0 ? C.up : C.down }}>
+            {aiSincePct !== null ? signedPct(aiSincePct) : 'flat'}
+          </strong>
+          . Both are shown throughout: <em>YTD</em> is the full-year picture, <em>since {monthLabel(MEASUREMENT_START)}</em> is
+          the period the work covers.
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -142,13 +168,13 @@ export default function Page() {
           <Kpi
             value={compact(latestTraffic)}
             label="Monthly organic visits"
-            sub="portfolio total"
+            sub={trafficSincePct !== null ? `${signedPct(trafficSincePct)} since ${monthLabel(MEASUREMENT_START)}` : 'portfolio total'}
             delta={trafficPct !== null ? { text: signedPct(trafficPct), positive: trafficPct >= 0 } : undefined}
           />
           <Kpi
             value={compact(latestAi)}
             label="AI Overview results"
-            sub="portfolio total"
+            sub={aiSincePct !== null ? `${signedPct(aiSincePct)} since ${monthLabel(MEASUREMENT_START)}` : 'portfolio total'}
             color={C.orange}
             delta={aiPct !== null ? { text: signedPct(aiPct), positive: aiPct >= 0 } : undefined}
           />

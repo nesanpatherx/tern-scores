@@ -1,4 +1,4 @@
-import { H, type HistoryRow, type PortcoRecord } from './data'
+import { H, MEASUREMENT_START, type HistoryRow, type PortcoRecord } from './data'
 
 /**
  * Three pillars, 100 points total. Kept as data so the UI and the methodology note
@@ -71,10 +71,16 @@ export type Scored = {
   metrics: Record<MetricKey, MetricResult>
   latest: HistoryRow
   baseline: HistoryRow
+  /** The month active work began — the fair starting point for judging results. */
+  measured: HistoryRow
   /** Percentage change in organic traffic since the start of the year. */
   trafficYtdPct: number | null
   /** Absolute change in AI Overview results since the start of the year. */
   aiYtdDelta: number
+  /** Percentage change in organic traffic since measurement began. */
+  trafficSincePct: number | null
+  /** Absolute change in AI Overview results since measurement began. */
+  aiSinceDelta: number
   history: readonly HistoryRow[]
 }
 
@@ -90,6 +96,7 @@ export function scorePortfolio(records: readonly PortcoRecord[]): Scored[] {
     const latest = history[history.length - 1]
     // Baseline is the first month of the current year, so "YTD" means change during 2026.
     const baseline = history.find(r => r[H.month].startsWith('2026')) ?? history[0]
+    const measured = history.find(r => r[H.month] === MEASUREMENT_START) ?? baseline
 
     const tracked = (idx: number) => ({
       value: latest[idx] as number,
@@ -146,8 +153,11 @@ export function scorePortfolio(records: readonly PortcoRecord[]): Scored[] {
       metrics,
       latest,
       baseline,
+      measured,
       trafficYtdPct: raw.traffic.ytd,
       aiYtdDelta: latest[H.aiOverview] - baseline[H.aiOverview],
+      trafficSincePct: pctChange(measured[H.traffic], latest[H.traffic]),
+      aiSinceDelta: latest[H.aiOverview] - measured[H.aiOverview],
       history,
     }
   })

@@ -1,6 +1,6 @@
-import { H } from '@/lib/data'
+import { H, MEASUREMENT_START } from '@/lib/data'
 import type { Scored } from '@/lib/score'
-import { compact, monthLabel, trend, TREND_COLOR } from '@/lib/format'
+import { monthLabel, signedPct, trend, TREND_COLOR } from '@/lib/format'
 
 const C = {
   orange: '#eb5c32',
@@ -14,21 +14,26 @@ const C = {
   down: '#dc2626',
 }
 
-/** Portfolio-wide AI Overview results per month, so the trend is visible at a glance. */
+/**
+ * Portfolio-wide AI Overview results per month. Months before work began are muted so
+ * the pre-April decline is not read as a result of that work.
+ */
 function PortfolioTrend({ scored }: { scored: Scored[] }) {
   const months = scored[0].history.map(r => r[H.month])
   const totals = months.map((_, i) => scored.reduce((sum, s) => sum + (s.history[i]?.[H.aiOverview] ?? 0), 0))
   const max = Math.max(...totals, 1)
+  const startIdx = months.indexOf(MEASUREMENT_START)
 
   return (
     <div>
-      <div className="flex items-end gap-1.5" style={{ height: 96 }}>
+      <div className="flex items-end gap-1.5" style={{ height: 92 }}>
         {totals.map((v, i) => {
+          const active = startIdx >= 0 && i >= startIdx
           const isLast = i === totals.length - 1
           return (
             <div key={months[i]} className="flex-1 flex flex-col items-center justify-end gap-1.5 h-full">
               <span
-                className="font-mono text-[10px] tabular-nums"
+                className="font-mono text-[9.5px] tabular-nums"
                 style={{ color: isLast ? C.ink : C.muted, fontWeight: isLast ? 700 : 400 }}
               >
                 {v}
@@ -37,7 +42,7 @@ function PortfolioTrend({ scored }: { scored: Scored[] }) {
                 className="w-full rounded-t"
                 style={{
                   height: `${Math.max((v / max) * 100, 2)}%`,
-                  background: isLast ? C.orange : '#f0d5cb',
+                  background: active ? C.orange : '#e8e3de',
                 }}
               />
             </div>
@@ -45,16 +50,22 @@ function PortfolioTrend({ scored }: { scored: Scored[] }) {
         })}
       </div>
       <div className="flex gap-1.5 mt-1.5">
-        {months.map((m, i) => (
-          <span
-            key={m}
-            className="flex-1 text-center text-[9px] whitespace-nowrap"
-            style={{ color: i === months.length - 1 ? C.body : C.muted }}
-          >
-            {monthLabel(m)}
-          </span>
-        ))}
+        {months.map((m, i) => {
+          const active = startIdx >= 0 && i >= startIdx
+          return (
+            <span
+              key={m}
+              className="flex-1 text-center text-[8.5px] whitespace-nowrap"
+              style={{ color: active ? C.body : '#c2c2be' }}
+            >
+              {monthLabel(m)}
+            </span>
+          )
+        })}
       </div>
+      <p className="text-[9.5px] mt-2 leading-snug" style={{ color: C.muted }}>
+        Shaded bars are months before optimisation work began in {monthLabel(MEASUREMENT_START)}.
+      </p>
     </div>
   )
 }
@@ -71,10 +82,14 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
   const byAi = [...scored].sort((a, b) => b.latest[H.aiOverview] - a.latest[H.aiOverview])
   const maxAi = Math.max(...byAi.map(r => r.latest[H.aiOverview]), 1)
 
-  const gainers = [...scored].sort((a, b) => b.aiYtdDelta - a.aiYtdDelta).slice(0, 3).filter(r => r.aiYtdDelta > 0)
-  const losers = [...scored].sort((a, b) => a.aiYtdDelta - b.aiYtdDelta).slice(0, 3).filter(r => r.aiYtdDelta < 0)
+  // Gainers and losers are judged from the month work began, not from January.
+  const gainers = [...scored].sort((a, b) => b.aiSinceDelta - a.aiSinceDelta).slice(0, 3).filter(r => r.aiSinceDelta > 0)
+  const losers = [...scored].sort((a, b) => a.aiSinceDelta - b.aiSinceDelta).slice(0, 3).filter(r => r.aiSinceDelta < 0)
 
   const period = `${monthLabel(scored[0].baseline[H.month])} → ${monthLabel(scored[0].latest[H.month])}`
+
+  const measuredTotal = scored.reduce((s, r) => s + r.measured[H.aiOverview], 0)
+  const sincePct = measuredTotal > 0 ? ((latestTotal - measuredTotal) / measuredTotal) * 100 : null
 
   return (
     <section className="rounded-lg overflow-hidden" style={{ background: '#fff', border: `1px solid ${C.line}` }}>
@@ -88,16 +103,36 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
               is not being quoted here.
             </p>
           </div>
-          <div className="flex items-baseline gap-2.5">
-            <span className="font-bold tabular-nums text-[30px] leading-none tracking-tight" style={{ color: '#fff' }}>
-              {latestTotal}
-            </span>
-            <span className="font-mono text-[12px] font-semibold tabular-nums" style={{ color: TREND_COLOR[portfolioTrend.direction] }}>
-              {portfolioTrend.text}
-            </span>
-            <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
-              results, {period}
-            </span>
+          <div className="text-right">
+            <div className="flex items-baseline gap-2.5 justify-end">
+              <span className="font-bold tabular-nums text-[30px] leading-none tracking-tight" style={{ color: '#fff' }}>
+                {latestTotal}
+              </span>
+              <div className="text-left">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-mono text-[12px] font-semibold tabular-nums" style={{ color: TREND_COLOR[portfolioTrend.direction] }}>
+                    {portfolioTrend.text}
+                  </span>
+                  <span className="text-[9.5px]" style={{ color: 'rgba(255,255,255,0.45)' }}>YTD</span>
+                </div>
+                {sincePct !== null && (
+                  <div className="flex items-baseline gap-1.5">
+                    <span
+                      className="font-mono text-[12px] font-semibold tabular-nums"
+                      style={{ color: sincePct >= 0 ? C.up : C.down }}
+                    >
+                      {signedPct(sincePct)}
+                    </span>
+                    <span className="text-[9.5px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                      since {monthLabel(MEASUREMENT_START)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="text-[9.5px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              citations · {period}
+            </div>
           </div>
         </div>
       </div>
@@ -105,8 +140,14 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
       <div className="grid lg:grid-cols-[1fr_340px]">
         {/* Ranked bars */}
         <div className="p-5">
-          <div className="text-[9px] font-semibold uppercase tracking-[0.12em] mb-3" style={{ color: C.muted }}>
-            AI Overview results by company
+          <div className="flex items-baseline justify-between mb-3 gap-3">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.muted }}>
+              AI Overview citations by company
+            </span>
+            <span className="flex gap-1.5 shrink-0 text-[8.5px] uppercase tracking-[0.08em]">
+              <span className="w-[40px] text-right" style={{ color: C.body }}>Since {monthLabel(MEASUREMENT_START)}</span>
+              <span className="w-[40px] text-right" style={{ color: '#c2c2be' }}>YTD</span>
+            </span>
           </div>
           <div className="space-y-1.5">
             {byAi.map(s => {
@@ -128,8 +169,16 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
                     {v}
                   </span>
                   <span
-                    className="font-mono text-[10.5px] tabular-nums w-[42px] text-right shrink-0"
-                    style={{ color: delta === 0 ? C.muted : delta > 0 ? C.up : C.down }}
+                    className="font-mono text-[10.5px] tabular-nums w-[40px] text-right shrink-0"
+                    title={`Change since ${monthLabel(MEASUREMENT_START)}`}
+                    style={{ color: s.aiSinceDelta === 0 ? C.muted : s.aiSinceDelta > 0 ? C.up : C.down }}
+                  >
+                    {s.aiSinceDelta === 0 ? (v > 0 ? 'flat' : '—') : `${s.aiSinceDelta > 0 ? '+' : ''}${s.aiSinceDelta}`}
+                  </span>
+                  <span
+                    className="font-mono text-[10.5px] tabular-nums w-[40px] text-right shrink-0"
+                    title="Change since January"
+                    style={{ color: delta === 0 ? '#c9c9c5' : delta > 0 ? '#86c39b' : '#e39a9a' }}
                   >
                     {delta === 0 ? (t.text === 'new' ? 'new' : '—') : `${delta > 0 ? '+' : ''}${delta}`}
                   </span>
@@ -137,9 +186,10 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
               )
             })}
           </div>
-          <p className="text-[10px] mt-3" style={{ color: C.muted }}>
-            Bar shows current AI Overview results. Final column is the change since{' '}
-            {monthLabel(scored[0].baseline[H.month])}.
+          <p className="text-[10px] mt-3 leading-snug" style={{ color: C.muted }}>
+            Bar shows current AI Overview citations. First figure is the change since work began in{' '}
+            {monthLabel(MEASUREMENT_START)}; the greyed figure is the full year to date, which includes
+            the quarter before that work started.
           </p>
         </div>
 
@@ -166,13 +216,13 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
           {gainers.length > 0 && (
             <div>
               <div className="text-[9px] font-semibold uppercase tracking-[0.12em] mb-2" style={{ color: C.muted }}>
-                Biggest gains
+                Biggest gains since {monthLabel(MEASUREMENT_START)}
               </div>
               <ul className="space-y-1">
                 {gainers.map(g => (
                   <li key={g.record.domain} className="flex items-baseline justify-between gap-2 text-[11px]">
                     <span className="truncate" style={{ color: C.body }}>{g.record.name}</span>
-                    <span className="font-mono tabular-nums shrink-0" style={{ color: C.up }}>+{g.aiYtdDelta}</span>
+                    <span className="font-mono tabular-nums shrink-0" style={{ color: C.up }}>+{g.aiSinceDelta}</span>
                   </li>
                 ))}
               </ul>
@@ -182,13 +232,13 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
           {losers.length > 0 && (
             <div>
               <div className="text-[9px] font-semibold uppercase tracking-[0.12em] mb-2" style={{ color: C.muted }}>
-                Biggest losses
+                Biggest losses since {monthLabel(MEASUREMENT_START)}
               </div>
               <ul className="space-y-1">
                 {losers.map(g => (
                   <li key={g.record.domain} className="flex items-baseline justify-between gap-2 text-[11px]">
                     <span className="truncate" style={{ color: C.body }}>{g.record.name}</span>
-                    <span className="font-mono tabular-nums shrink-0" style={{ color: C.down }}>{g.aiYtdDelta}</span>
+                    <span className="font-mono tabular-nums shrink-0" style={{ color: C.down }}>{g.aiSinceDelta}</span>
                   </li>
                 ))}
               </ul>

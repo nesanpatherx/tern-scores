@@ -13,13 +13,22 @@ import type { PortcoGroup } from './portcos'
  * fetched live. Refresh by re-running the resource_rank_history report per domain
  * and replacing its history, plus backlinks_overview for the link figures.
  *
- * Every domain is measured against the SEMrush **UK** database. This is a UK
- * portfolio and mixing regional databases would mean companies were not being
- * compared on the same basis.
+ * Domains are measured against the SEMrush **UK** database, with one deliberate
+ * exception: StoreSpace Insights sells into the US, and its UK figures understate
+ * it by roughly ten times. It is measured on the US database and flagged as such
+ * in the UI rather than being made to look weak by the wrong yardstick.
  */
 export const DATA_AS_OF = '2026-08-11'
 export const LATEST_MONTH = '2026-07'
 export const BASELINE_MONTH = '2026-01'
+
+/**
+ * The month active measurement and optimisation work began across the portfolio.
+ * Movement before this point predates any of that work, so the page reports change
+ * since this month alongside the full year-to-date figure — otherwise a Q1 decline
+ * reads as a failure of work that had not started yet.
+ */
+export const MEASUREMENT_START = '2026-04'
 
 /** Monthly row: [month, organicKeywords, organicTraffic, trafficCost, top3Positions, aiOverview, featuredSnippet, peopleAlsoAsk] */
 export type HistoryRow = readonly [string, number, number, number, number, number, number, number]
@@ -165,17 +174,17 @@ export const PORTFOLIO: readonly PortcoRecord[] = [
     ],
   },
   {
-    name: 'StoreSpace Insights', domain: 'storespaceinsights.com', group: 'Forma Innovations', database: 'uk',
+    name: 'StoreSpace Insights', domain: 'storespaceinsights.com', group: 'Forma Innovations', database: 'us',
     authorityScore: 23, referringDomains: 225, backlinks: 1981,
     history: [
-      ['2025-12', 10, 0, 0, 0, 4, 0, 7],
-      ['2026-01', 11, 0, 0, 0, 3, 0, 10],
-      ['2026-02', 17, 25, 160, 1, 5, 0, 16],
-      ['2026-03', 12, 25, 160, 1, 6, 0, 10],
-      ['2026-04', 19, 24, 90, 1, 8, 0, 17],
-      ['2026-05', 19, 27, 102, 1, 9, 0, 18],
-      ['2026-06', 17, 95, 486, 1, 10, 0, 15],
-      ['2026-07', 17, 110, 474, 1, 11, 0, 15],
+      ['2025-12', 94, 128, 222, 5, 49, 0, 46],
+      ['2026-01', 144, 148, 1990, 10, 79, 2, 75],
+      ['2026-02', 157, 91, 1938, 8, 92, 2, 99],
+      ['2026-03', 140, 30, 143, 5, 101, 0, 55],
+      ['2026-04', 142, 38, 176, 7, 113, 0, 33],
+      ['2026-05', 136, 61, 223, 9, 108, 0, 76],
+      ['2026-06', 127, 229, 190, 9, 101, 0, 88],
+      ['2026-07', 148, 241, 206, 10, 113, 0, 95],
     ],
   },
   {
