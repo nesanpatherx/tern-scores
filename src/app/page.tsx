@@ -1,179 +1,172 @@
-import ScoresTable, { type ScoredPortco } from '@/components/ScoresTable'
 import ScoreCards from '@/components/ScoreCards'
+import ScoresTable from '@/components/ScoresTable'
+import AiVisibility from '@/components/AiVisibility'
 import MethodologyNote from '@/components/MethodologyNote'
-import { PORTCOS, GROUP_ORDER } from '@/lib/portcos'
-import { fetchPortcoMetrics, REVALIDATE_SECONDS } from '@/lib/semrush'
-import { computeScore, scoreBand } from '@/lib/score'
-
-// Data comes straight from the SEMrush API and is cached for a day. SEMrush only
-// recalculates these figures around monthly, so this stays fresh while keeping the
-// portfolio-wide refresh to roughly 900 API units per day.
-export const revalidate = REVALIDATE_SECONDS
+import { PORTFOLIO, DATA_AS_OF, H } from '@/lib/data'
+import { GROUP_ORDER } from '@/lib/portcos'
+import { scorePortfolio, scoreBand } from '@/lib/score'
+import { compact, signedPct, monthLabel } from '@/lib/format'
 
 const C = {
   orange: '#eb5c32',
-  nearBlack: '#1a1a18',
-  charcoal: '#4a4a48',
-  darkGrey: '#8a8a88',
-  lightGrey: '#d9d9d9',
-  hairline: '#ececea',
-  offWhite: '#f7f4f0',
+  ink: '#1a1a18',
+  body: '#4a4a48',
+  muted: '#8a8a88',
+  line: '#e4e4e1',
+  hair: '#f0efec',
+  cream: '#f7f4f0',
+  up: '#16a34a',
+  down: '#dc2626',
 }
 
-async function getScores(): Promise<ScoredPortco[]> {
-  const results = await Promise.all(
-    PORTCOS.map(async portco => {
-      const metrics = await fetchPortcoMetrics(portco)
-      return { portco, metrics, score: computeScore(metrics), rank: 0 }
-    })
-  )
-
-  return results
-    .sort((a, b) => b.score.total - a.score.total)
-    .map((entry, i) => ({ ...entry, rank: i + 1 }))
-}
-
-function StatCard({
-  value,
-  label,
-  sub,
-  color,
+function Kpi({
+  value, label, sub, color, delta,
 }: {
   value: string | number
   label: string
   sub?: string
   color?: string
+  delta?: { text: string; positive: boolean }
 }) {
   return (
-    <div className="px-5 py-4" style={{ background: '#ffffff', border: `1px solid ${C.lightGrey}` }}>
-      <div className="text-[26px] font-bold leading-none tabular-nums" style={{ color: color ?? C.nearBlack }}>
-        {value}
+    <div className="px-4 py-3.5 rounded-lg" style={{ background: '#fff', border: `1px solid ${C.line}` }}>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[27px] font-bold leading-none tabular-nums tracking-tight" style={{ color: color ?? C.ink }}>
+          {value}
+        </span>
+        {delta && (
+          <span className="text-[11px] font-mono font-semibold tabular-nums" style={{ color: delta.positive ? C.up : C.down }}>
+            {delta.text}
+          </span>
+        )}
       </div>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.1em] mt-2.5" style={{ color: C.darkGrey }}>
+      <div className="text-[9.5px] font-semibold uppercase tracking-[0.11em] mt-2.5" style={{ color: C.muted }}>
         {label}
       </div>
-      {sub && <div className="text-[11px] mt-1 truncate" style={{ color: C.darkGrey }}>{sub}</div>}
+      {sub && <div className="text-[10.5px] mt-0.5 truncate" style={{ color: C.muted }}>{sub}</div>}
     </div>
   )
 }
 
 function SectionHeading({ title, hint }: { title: string; hint?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 mt-8 mb-3 first:mt-0">
-      <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.charcoal }}>
-        {title}
-      </h2>
-      {hint && <span className="text-[11px] hidden sm:inline" style={{ color: C.darkGrey }}>{hint}</span>}
+    <div className="flex items-baseline justify-between gap-4 mt-7 mb-3">
+      <h2 className="text-[10px] font-semibold uppercase tracking-[0.13em]" style={{ color: C.body }}>{title}</h2>
+      {hint && <span className="text-[10.5px] hidden sm:inline" style={{ color: C.muted }}>{hint}</span>}
     </div>
   )
 }
 
-export default async function ScoresDashboard() {
-  const scored = await getScores()
+export default function Page() {
+  const scored = scorePortfolio(PORTFOLIO)
 
-  const avg = scored.length ? Math.round(scored.reduce((s, r) => s + r.score.total, 0) / scored.length) : 0
+  const avg = Math.round(scored.reduce((s, r) => s + r.total, 0) / scored.length)
   const leader = scored[0]
-  const strong = scored.filter(r => r.score.total >= 70).length
-  const needsWork = scored.filter(r => r.score.total < 45).length
-  const failures = scored.filter(r => r.metrics.error)
-  const partials = scored.filter(r => !r.metrics.error && r.metrics.partialError)
+
+  // Portfolio totals, summed rather than averaged, so one large site does not hide the rest.
+  const latestTraffic = scored.reduce((s, r) => s + r.latest[H.traffic], 0)
+  const baseTraffic = scored.reduce((s, r) => s + r.baseline[H.traffic], 0)
+  const trafficPct = baseTraffic > 0 ? ((latestTraffic - baseTraffic) / baseTraffic) * 100 : null
+
+  const latestAi = scored.reduce((s, r) => s + r.latest[H.aiOverview], 0)
+  const baseAi = scored.reduce((s, r) => s + r.baseline[H.aiOverview], 0)
+  const aiPct = baseAi > 0 ? ((latestAi - baseAi) / baseAi) * 100 : null
+
+  // Growth from a zero base has no percentage but is still growth, so it counts here.
+  const growing = scored.filter(r => {
+    const from = r.baseline[H.traffic]
+    const to = r.latest[H.traffic]
+    return (from === 0 && to > 0) || (r.trafficYtdPct ?? 0) > 5
+  }).length
+  const declining = scored.filter(r => (r.trafficYtdPct ?? 0) < -5).length
+
+  const period = `${monthLabel(scored[0].baseline[H.month])} → ${monthLabel(scored[0].latest[H.month])}`
 
   const groups = GROUP_ORDER.map(group => ({
     group,
-    rows: scored.filter(r => r.portco.group === group),
+    rows: scored.filter(r => r.record.group === group),
   })).filter(g => g.rows.length > 0)
 
-  const updated = new Date().toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  })
+  const asOf = new Date(DATA_AS_OF).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
-    <div className="min-h-screen" style={{ background: C.offWhite }}>
+    <div className="min-h-screen" style={{ background: C.cream }}>
       <header
         className="px-5 sm:px-6 flex items-center justify-between h-14 sticky top-0 z-20"
-        style={{ background: C.nearBlack, borderBottom: `2px solid ${C.orange}` }}
+        style={{ background: C.ink, borderBottom: `2px solid ${C.orange}` }}
       >
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-[15px] leading-none select-none shrink-0">
             <span style={{ color: C.orange, fontWeight: 600 }}>Tern</span>
-            <span style={{ color: '#ffffff', fontWeight: 300 }}>Capital</span>
+            <span style={{ color: '#fff', fontWeight: 300 }}>Capital</span>
           </span>
           <span
             className="text-[11px] hidden sm:inline truncate"
-            style={{ color: C.darkGrey, borderLeft: `1px solid ${C.charcoal}`, paddingLeft: 12 }}
+            style={{ color: C.muted, borderLeft: `1px solid ${C.body}`, paddingLeft: 12 }}
           >
-            Search visibility scorecard
+            Search &amp; AI Visibility Index
           </span>
         </div>
-        <span className="text-[11px] shrink-0" style={{ color: C.darkGrey }}>
-          {PORTCOS.length} companies · {updated}
+        <span className="text-[10.5px] shrink-0" style={{ color: C.muted }}>
+          {PORTFOLIO.length} companies · SEMrush, {asOf}
         </span>
       </header>
 
-      <main className="px-4 sm:px-6 py-6 max-w-[1500px] mx-auto">
-        <div className="mb-6 max-w-[760px]">
-          <h1 className="text-[19px] font-semibold leading-snug" style={{ color: C.nearBlack }}>
-            Organic search performance across the Tern portfolio
+      <main className="px-4 sm:px-6 py-6 max-w-[1540px] mx-auto">
+        <div className="mb-5 max-w-[740px]">
+          <div className="flex items-center gap-2.5 mb-2">
+            <span
+              className="text-[9.5px] font-semibold uppercase tracking-[0.11em] px-2 py-1 rounded"
+              style={{ background: C.orange, color: '#fff' }}
+            >
+              Year to date · {period}
+            </span>
+            <span className="text-[10.5px]" style={{ color: C.muted }}>
+              2026 performance so far
+            </span>
+          </div>
+          <h1 className="text-[20px] font-semibold leading-snug tracking-tight" style={{ color: C.ink }}>
+            How the portfolio is performing in search and AI answers
           </h1>
-          <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: C.charcoal }}>
-            Every company scored out of 100 on the same five SEMrush measures of organic search
-            strength. Figures are pulled live from the SEMrush API — no manual uploads, so each
-            company is measured on exactly the same basis.
+          <p className="text-[13px] mt-2 leading-relaxed" style={{ color: C.body }}>
+            <strong style={{ color: C.ink }}>This is year-to-date data for 2026 — {period}.</strong>{' '}
+            Every company is scored out of 100 across three pillars: classic search, visibility inside
+            AI answers, and domain authority. Every percentage change on this page measures movement
+            since the start of the year, not month on month. All figures come from SEMrush&apos;s UK
+            database, so each company is measured on exactly the same basis.
           </p>
         </div>
 
-        {failures.length > 0 && (
-          <div
-            className="mb-4 px-4 py-3 text-[12px] leading-relaxed"
-            style={{ background: '#fff8f5', border: `1px solid ${C.orange}`, color: C.charcoal }}
-          >
-            <strong>SEMrush lookup failed</strong> for {failures.length}{' '}
-            {failures.length === 1 ? 'company' : 'companies'}:{' '}
-            {failures.map(f => f.portco.name).join(', ')}. These show no data rather than a
-            misleading zero.{' '}
-            <span style={{ color: C.darkGrey }}>{failures[0].metrics.error}</span>
-          </div>
-        )}
-
-        {partials.length > 0 && (
-          <div
-            className="mb-4 px-4 py-3 text-[12px] leading-relaxed"
-            style={{ background: '#ffffff', border: `1px solid ${C.lightGrey}`, color: C.charcoal }}
-          >
-            <strong>Partial data</strong> for {partials.map(p => p.portco.name).join(', ')} — some
-            figures returned and are real, others did not and count as zero, so{' '}
-            {partials.length === 1 ? 'this score is' : 'these scores are'} understated. Expand the
-            row for detail.
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px mb-5" style={{ background: C.lightGrey }}>
-          <StatCard
-            value={avg}
-            label="Portfolio average"
-            sub="out of 100"
-            color={scoreBand(avg).color}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <Kpi value={avg} label="Portfolio average" sub="out of 100" color={scoreBand(avg).color} />
+          <Kpi
+            value={compact(latestTraffic)}
+            label="Monthly organic visits"
+            sub="portfolio total"
+            delta={trafficPct !== null ? { text: signedPct(trafficPct), positive: trafficPct >= 0 } : undefined}
           />
-          <StatCard
-            value={leader ? leader.score.total : '—'}
-            label="Highest score"
-            sub={leader?.portco.name}
+          <Kpi
+            value={compact(latestAi)}
+            label="AI Overview results"
+            sub="portfolio total"
             color={C.orange}
+            delta={aiPct !== null ? { text: signedPct(aiPct), positive: aiPct >= 0 } : undefined}
           />
-          <StatCard value={strong} label="Scoring 70+" sub={`of ${scored.length} companies`} />
-          <StatCard value={needsWork} label="Scoring under 45" sub="priority for attention" />
+          <Kpi value={leader.total} label="Highest score" sub={leader.record.name} />
+          <Kpi
+            value={`${growing} / ${declining}`}
+            label="Growing vs declining"
+            sub={`organic traffic, ${period}`}
+          />
         </div>
 
-        <SectionHeading
-          title="Ranked by score"
-          hint="Hover a card for the biggest gains available"
-        />
-        <ScoreCards entries={scored} />
+        <SectionHeading title="Ranked — all 15 companies" hint="Hover a card for its biggest gains available" />
+        <ScoreCards scored={scored} />
 
-        <SectionHeading
-          title="Full metrics by group"
-          hint="Click a row for the score breakdown"
-        />
+        <SectionHeading title="AI visibility" hint={`Google AI Overview citations, ${period}`} />
+        <AiVisibility scored={scored} />
+
+        <SectionHeading title="Full metrics by group" hint="Click a row for the pillar breakdown and YTD movement" />
         <ScoresTable groups={groups} />
 
         <MethodologyNote />

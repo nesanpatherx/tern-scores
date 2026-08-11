@@ -1,166 +1,181 @@
 'use client'
 
 import { useState } from 'react'
-import {
-  METRIC_POINTS,
-  METRIC_SHORT,
-  METRIC_LABELS,
-  BENCHMARKS,
-  scoreBand,
-  type MetricKey,
-  type ScoreBreakdown,
-} from '@/lib/score'
-import type { SemrushMetrics } from '@/lib/semrush'
-import type { Portco } from '@/lib/portcos'
+import { H } from '@/lib/data'
+import { METRICS, PILLARS, scoreBand, type MetricKey, type PillarKey, type Scored } from '@/lib/score'
+import { compact, monthLabel, trend, TREND_COLOR } from '@/lib/format'
 
 const C = {
   orange: '#eb5c32',
-  nearBlack: '#1a1a18',
-  charcoal: '#4a4a48',
-  darkGrey: '#8a8a88',
-  lightGrey: '#d9d9d9',
-  hairline: '#ececea',
-  offWhite: '#f7f4f0',
+  ink: '#1a1a18',
+  body: '#4a4a48',
+  muted: '#8a8a88',
+  line: '#e4e4e1',
+  hair: '#f0efec',
+  cream: '#f7f4f0',
+  up: '#16a34a',
+  down: '#dc2626',
 }
 
-export type ScoredPortco = {
-  portco: Portco
-  metrics: SemrushMetrics
-  score: ScoreBreakdown
-  rank: number
+const COLUMNS: { key: MetricKey; short: string }[] = [
+  { key: 'traffic', short: 'Traffic' },
+  { key: 'keywords', short: 'Keywords' },
+  { key: 'top3', short: 'Top 3' },
+  { key: 'aiOverview', short: 'AI Overview' },
+  { key: 'peopleAlsoAsk', short: 'Also Ask' },
+  { key: 'authorityScore', short: 'Authority' },
+  { key: 'referringDomains', short: 'Ref. domains' },
+  { key: 'backlinks', short: 'Backlinks' },
+]
+
+/** Where each pillar's columns start, for the grouped header row. */
+const PILLAR_SPANS: { pillar: PillarKey; span: number }[] = [
+  { pillar: 'search', span: 3 },
+  { pillar: 'ai', span: 2 },
+  { pillar: 'authority', span: 3 },
+]
+
+function Delta({ from, to, pct }: { from: number | null; to: number | null; pct: number | null }) {
+  const t = trend(from, to, pct)
+  return <span style={{ color: TREND_COLOR[t.direction] }}>{t.text}</span>
 }
 
-const METRIC_ORDER: MetricKey[] = ['authority', 'traffic', 'keywords', 'referringDomains', 'backlinks']
-
-function fmt(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 10_000) return `${Math.round(n / 1000)}k`
-  if (n >= 1_000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
-}
-
-function ScorePill({ score }: { score: number }) {
-  const band = scoreBand(score)
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: C.hairline, minWidth: 44 }}>
-        <div className="h-full rounded-full" style={{ width: `${score}%`, background: band.color }} />
-      </div>
-      <span className="font-mono text-[13px] font-bold tabular-nums w-[22px] text-right" style={{ color: band.color }}>
-        {score}
-      </span>
-    </div>
-  )
-}
-
-function MetricBar({ label, points, max, value }: { label: string; points: number; max: number; value: number }) {
-  const share = max > 0 ? (points / max) * 100 : 0
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className="w-[104px] shrink-0 text-[11px]" style={{ color: C.darkGrey }}>{label}</span>
-      <span className="w-[52px] shrink-0 font-mono text-[11px] tabular-nums text-right" style={{ color: C.charcoal }}>
-        {fmt(value)}
-      </span>
-      <div className="flex-1 h-[4px] rounded-full overflow-hidden" style={{ background: C.hairline, minWidth: 40 }}>
-        <div className="h-full rounded-full" style={{ width: `${share}%`, background: C.orange }} />
-      </div>
-      <span className="w-[46px] shrink-0 font-mono text-[11px] tabular-nums text-right" style={{ color: C.charcoal }}>
-        {points.toFixed(1)}<span style={{ color: C.lightGrey }}>/{max}</span>
-      </span>
-    </div>
-  )
-}
-
-function Row({ entry, isLast }: { entry: ScoredPortco; isLast: boolean }) {
+function Row({ s, isLast }: { s: Scored; isLast: boolean }) {
   const [open, setOpen] = useState(false)
-  const { portco, metrics, score, rank } = entry
-  const band = scoreBand(score.total)
+  const band = scoreBand(s.total)
+  const { record } = s
 
   return (
     <>
       <tr
         onClick={() => setOpen(o => !o)}
         className="cursor-pointer transition-colors hover:bg-[#fbfaf8]"
-        style={{ borderBottom: open || isLast ? 'none' : `1px solid ${C.hairline}` }}
+        style={{ borderBottom: open || isLast ? 'none' : `1px solid ${C.hair}` }}
       >
-        <td className="pl-4 pr-1 py-[11px] align-middle">
-          <span className="font-mono text-[11px] tabular-nums" style={{ color: C.lightGrey }}>
-            {String(rank).padStart(2, '0')}
+        <td className="pl-4 pr-1 py-2.5">
+          <span className="font-mono text-[10.5px] tabular-nums" style={{ color: C.line }}>
+            {String(s.rank).padStart(2, '0')}
           </span>
         </td>
-        <td className="px-2 py-[11px] align-middle">
-          <div className="flex items-center gap-2.5 min-w-0">
+
+        <td className="px-2 py-2.5">
+          <div className="flex items-center gap-2 min-w-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`https://www.google.com/s2/favicons?sz=64&domain=${portco.domain}`}
+              src={`https://www.google.com/s2/favicons?sz=64&domain=${record.domain}`}
               alt=""
-              width={16}
-              height={16}
-              className="shrink-0 rounded-sm"
+              width={15}
+              height={15}
+              className="shrink-0 rounded"
               style={{ opacity: 0.85 }}
             />
             <div className="min-w-0">
-              <div className="text-[13px] font-semibold leading-tight truncate" style={{ color: C.nearBlack }}>
-                {portco.name}
+              <div className="text-[12.5px] font-semibold leading-tight truncate" style={{ color: C.ink }}>
+                {record.name}
               </div>
               <a
-                href={`https://${portco.domain}`}
+                href={`https://${record.domain}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
-                className="text-[11px] hover:underline truncate block"
-                style={{ color: C.darkGrey }}
+                className="text-[10.5px] hover:underline truncate block"
+                style={{ color: C.muted }}
               >
-                {portco.domain}
+                {record.domain}
               </a>
             </div>
           </div>
         </td>
 
-        <td className="px-3 py-[11px] align-middle w-[132px]">
-          <ScorePill score={score.total} />
+        <td className="px-3 py-2.5 w-[112px]">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: C.hair, minWidth: 38 }}>
+              <div className="h-full rounded-full" style={{ width: `${s.total}%`, background: band.color }} />
+            </div>
+            <span className="font-mono text-[13px] font-bold tabular-nums w-[21px] text-right" style={{ color: band.color }}>
+              {s.total}
+            </span>
+          </div>
         </td>
 
-        <td className="px-3 py-[11px] align-middle w-[96px]">
-          <span className="text-[11px] font-semibold" style={{ color: band.color }}>{band.label}</span>
+        {COLUMNS.map((c, i) => {
+          const m = s.metrics[c.key]
+          const dividerBefore = i === 0 || i === 3 || i === 5
+          return (
+            <td
+              key={c.key}
+              className="px-3 py-2.5 text-right font-mono text-[12px] tabular-nums"
+              style={{ color: C.body, borderLeft: dividerBefore ? `1px solid ${C.hair}` : undefined }}
+            >
+              {compact(m.value)}
+            </td>
+          )
+        })}
+
+        <td className="px-3 py-2.5 text-right font-mono text-[11.5px] tabular-nums" style={{ borderLeft: `1px solid ${C.hair}` }}>
+          <Delta from={s.baseline[H.traffic]} to={s.latest[H.traffic]} pct={s.trafficYtdPct} />
         </td>
 
-        {METRIC_ORDER.map(k => (
-          <td
-            key={k}
-            className="px-3 py-[11px] text-right font-mono text-[12px] tabular-nums align-middle"
-            style={{ color: C.charcoal }}
-          >
-            {metrics.error ? <span style={{ color: C.lightGrey }}>·</span> : fmt(score.parts[k].value)}
-          </td>
-        ))}
-
-        <td className="pr-4 pl-1 py-[11px] text-right align-middle">
-          <span className="text-[9px]" style={{ color: C.lightGrey }}>{open ? '▲' : '▼'}</span>
+        <td className="pr-4 pl-1 py-2.5 text-right">
+          <span className="text-[8.5px]" style={{ color: C.line }}>{open ? '▲' : '▼'}</span>
         </td>
       </tr>
 
       {open && (
-        <tr style={{ borderBottom: isLast ? 'none' : `1px solid ${C.hairline}` }}>
-          <td colSpan={9} className="px-4 pb-4 pt-1" style={{ background: '#fbfaf8' }}>
-            <div className="grid gap-x-10 gap-y-2 md:grid-cols-2 max-w-[900px]">
-              {METRIC_ORDER.map(k => (
-                <MetricBar
-                  key={k}
-                  label={METRIC_LABELS[k]}
-                  points={score.parts[k].points}
-                  max={score.parts[k].max}
-                  value={score.parts[k].value}
-                />
+        <tr style={{ borderBottom: isLast ? 'none' : `1px solid ${C.hair}` }}>
+          <td colSpan={COLUMNS.length + 5} className="px-4 pt-1 pb-4" style={{ background: '#fbfaf8' }}>
+            <div className="grid gap-x-8 gap-y-4 md:grid-cols-3">
+              {(Object.keys(PILLARS) as PillarKey[]).map(pk => (
+                <div key={pk}>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.body }}>
+                      {PILLARS[pk].label}
+                    </span>
+                    <span className="font-mono text-[11px] tabular-nums" style={{ color: C.ink }}>
+                      {s.pillars[pk].earned.toFixed(1)}
+                      <span style={{ color: C.line }}>/{s.pillars[pk].max}</span>
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {Object.values(s.metrics).filter(m => m.pillar === pk).map(m => (
+                      <div key={m.key} className="flex items-center gap-2">
+                        <span className="text-[10.5px] w-[96px] shrink-0 truncate" style={{ color: C.muted }}>{m.label}</span>
+                        <span className="font-mono text-[10.5px] tabular-nums w-[42px] text-right shrink-0" style={{ color: C.body }}>
+                          {compact(m.value)}
+                        </span>
+                        <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: C.hair, minWidth: 28 }}>
+                          <div className="h-full rounded-full" style={{ width: `${(m.points / m.max) * 100}%`, background: C.orange }} />
+                        </div>
+                        <span className="font-mono text-[10px] tabular-nums w-[44px] text-right shrink-0" style={{ color: C.body }}>
+                          {m.points.toFixed(1)}<span style={{ color: C.line }}>/{m.max}</span>
+                        </span>
+                        <span className="font-mono text-[10px] tabular-nums w-[44px] text-right shrink-0">
+                          <Delta from={m.ytdFrom} to={m.ytdTo} pct={m.ytd} />
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
-            <div className="mt-3 pt-2.5 text-[11px] flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: `1px solid ${C.hairline}`, color: C.darkGrey }}>
+
+            <div className="mt-3 pt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-[10.5px]" style={{ borderTop: `1px solid ${C.line}`, color: C.muted }}>
               <span>
-                Total <span className="font-mono font-bold" style={{ color: C.nearBlack }}>{score.total}/100</span>
+                Total <span className="font-mono font-bold" style={{ color: C.ink }}>{s.total}/100</span>
               </span>
-              <span>SEMrush <span style={{ color: C.charcoal }}>{metrics.database.toUpperCase()}</span> database</span>
-              {metrics.error && <span style={{ color: C.orange }}>Lookup failed: {metrics.error}</span>}
-              {metrics.partialError && <span style={{ color: C.orange }}>Partial data: {metrics.partialError}</span>}
+              <span>
+                Year to date{' '}
+                <span style={{ color: C.body }}>
+                  {monthLabel(s.baseline[H.month])} → {monthLabel(s.latest[H.month])}
+                </span>
+              </span>
+              <span>
+                AI Overview{' '}
+                <span className="font-mono" style={{ color: s.aiYtdDelta >= 0 ? C.up : C.down }}>
+                  {s.baseline[H.aiOverview]} → {s.latest[H.aiOverview]}
+                </span>
+              </span>
+              <span>SEMrush UK database</span>
             </div>
           </td>
         </tr>
@@ -169,91 +184,88 @@ function Row({ entry, isLast }: { entry: ScoredPortco; isLast: boolean }) {
   )
 }
 
-function Head() {
+export default function ScoresTable({ groups }: { groups: { group: string; rows: Scored[] }[] }) {
   return (
-    <thead>
-      <tr style={{ background: C.offWhite, borderBottom: `1px solid ${C.lightGrey}` }}>
-        <th className="pl-4 pr-1 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.08em] w-[34px]" style={{ color: C.darkGrey }}>
-          #
-        </th>
-        <th className="px-2 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.darkGrey }}>
-          Company
-        </th>
-        <th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.charcoal }}>
-          Score / 100
-        </th>
-        <th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.darkGrey }}>
-          Band
-        </th>
-        {METRIC_ORDER.map(k => (
-          <th
-            key={k}
-            title={`${METRIC_LABELS[k]} — ${METRIC_POINTS[k]}pts, full marks at ${BENCHMARKS[k].toLocaleString()}`}
-            className="px-3 py-2 text-right text-[9px] font-semibold uppercase tracking-[0.08em] whitespace-nowrap"
-            style={{ color: C.darkGrey }}
-          >
-            {METRIC_SHORT[k]}
-          </th>
-        ))}
-        <th className="pr-4 pl-1 w-[24px]" style={{ background: C.offWhite }} />
-      </tr>
-    </thead>
+    <div className="space-y-3">
+      {groups.map(g => <GroupSection key={g.group} group={g.group} rows={g.rows} />)}
+    </div>
   )
 }
 
-function GroupSection({ group, rows }: { group: string; rows: ScoredPortco[] }) {
+function GroupSection({ group, rows }: { group: string; rows: Scored[] }) {
   const [collapsed, setCollapsed] = useState(false)
-  const avg = rows.length ? Math.round(rows.reduce((s, r) => s + r.score.total, 0) / rows.length) : 0
+  const avg = rows.length ? Math.round(rows.reduce((s, r) => s + r.total, 0) / rows.length) : 0
   const band = scoreBand(avg)
 
   return (
-    <section style={{ background: '#ffffff', border: `1px solid ${C.lightGrey}` }}>
+    <section className="rounded-lg overflow-hidden" style={{ background: '#fff', border: `1px solid ${C.line}` }}>
       <button
         onClick={() => setCollapsed(c => !c)}
-        className="w-full px-4 py-3 flex items-center justify-between transition-opacity hover:opacity-90"
-        style={{ background: C.nearBlack }}
+        className="w-full px-4 py-2.5 flex items-center justify-between transition-opacity hover:opacity-90"
+        style={{ background: C.ink }}
       >
         <span className="flex items-baseline gap-2.5">
-          <span className="text-[13px] font-semibold" style={{ color: '#ffffff' }}>{group}</span>
-          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          <span className="text-[12.5px] font-semibold" style={{ color: '#fff' }}>{group}</span>
+          <span className="text-[10.5px]" style={{ color: 'rgba(255,255,255,0.42)' }}>
             {rows.length} {rows.length === 1 ? 'company' : 'companies'}
           </span>
         </span>
         <span className="flex items-center gap-3.5">
-          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            group average{' '}
-            <span className="font-mono font-bold" style={{ color: band.color }}>{avg}</span>
+          <span className="text-[10.5px]" style={{ color: 'rgba(255,255,255,0.42)' }}>
+            average <span className="font-mono font-bold" style={{ color: band.color }}>{avg}</span>
           </span>
-          <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{collapsed ? '▶' : '▼'}</span>
+          <span className="text-[8.5px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{collapsed ? '▶' : '▼'}</span>
         </span>
       </button>
 
       {!collapsed && (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse min-w-[860px]">
-            <Head />
+          <table className="w-full border-collapse min-w-[1000px]">
+            <thead>
+              <tr style={{ background: C.cream }}>
+                <th colSpan={3} />
+                {PILLAR_SPANS.map(({ pillar, span }) => (
+                  <th
+                    key={pillar}
+                    colSpan={span}
+                    className="px-3 py-1.5 text-center text-[8.5px] font-semibold uppercase tracking-[0.1em]"
+                    style={{ color: C.body, borderLeft: `1px solid ${C.line}` }}
+                  >
+                    {PILLARS[pillar].label} · {PILLARS[pillar].points}pts
+                  </th>
+                ))}
+                <th colSpan={2} className="px-3 py-1.5 text-center text-[8.5px] font-semibold uppercase tracking-[0.1em]"
+                  style={{ color: C.body, borderLeft: `1px solid ${C.line}` }}>
+                  YTD
+                </th>
+              </tr>
+              <tr style={{ background: C.cream, borderBottom: `1px solid ${C.line}` }}>
+                <th className="pl-4 pr-1 py-2 text-left text-[8.5px] font-semibold uppercase tracking-[0.1em] w-[32px]" style={{ color: C.muted }}>#</th>
+                <th className="px-2 py-2 text-left text-[8.5px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.muted }}>Company</th>
+                <th className="px-3 py-2 text-left text-[8.5px] font-semibold uppercase tracking-[0.1em]" style={{ color: C.ink }}>Score</th>
+                {COLUMNS.map((c, i) => (
+                  <th
+                    key={c.key}
+                    title={`${METRICS[c.key].label} — ${METRICS[c.key].points}pts, full marks at ${METRICS[c.key].benchmark.toLocaleString('en-GB')}`}
+                    className="px-3 py-2 text-right text-[8.5px] font-semibold uppercase tracking-[0.1em] whitespace-nowrap"
+                    style={{ color: C.muted, borderLeft: (i === 0 || i === 3 || i === 5) ? `1px solid ${C.hair}` : undefined }}
+                  >
+                    {c.short}
+                  </th>
+                ))}
+                <th className="px-3 py-2 text-right text-[8.5px] font-semibold uppercase tracking-[0.1em] whitespace-nowrap"
+                  style={{ color: C.muted, borderLeft: `1px solid ${C.hair}` }}>
+                  Traffic
+                </th>
+                <th className="pr-4 pl-1 w-[22px]" />
+              </tr>
+            </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <Row key={r.portco.domain} entry={r} isLast={i === rows.length - 1} />
-              ))}
+              {rows.map((r, i) => <Row key={r.record.domain} s={r} isLast={i === rows.length - 1} />)}
             </tbody>
           </table>
         </div>
       )}
     </section>
-  )
-}
-
-export default function ScoresTable({
-  groups,
-}: {
-  groups: { group: string; rows: ScoredPortco[] }[]
-}) {
-  return (
-    <div className="space-y-4">
-      {groups.map(g => (
-        <GroupSection key={g.group} group={g.group} rows={g.rows} />
-      ))}
-    </div>
   )
 }
