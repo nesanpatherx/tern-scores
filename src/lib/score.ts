@@ -1,134 +1,122 @@
-import type { SCUpload, GAUpload, SEMUpload } from './supabase'
+import type { SemrushMetrics } from './semrush'
 
 /**
- * Points per metric. These must sum to exactly 100, and each source's metrics
- * must sum to its intended weight: SEMrush 40, Search Console 35, GA4 25.
+ * Points per metric. Must sum to exactly 100 — `TOTAL_POINTS` asserts it below.
+ *
+ * Weighting rationale: Authority Score and Organic Traffic carry the most because
+ * they are the headline outcome signals. Keywords measures breadth of visibility.
+ * Referring domains is weighted above raw backlinks because link diversity is the
+ * harder and more meaningful thing to earn.
  */
 export const METRIC_POINTS = {
-  // SEMrush — 40
-  authority: 15,
-  traffic: 15,
-  keywords: 5,
-  backlinks: 5,
-  // Search Console — 35
-  clicks: 12,
-  ctr: 12,
-  position: 11,
-  // GA4 — 25
-  users: 10,
-  bounce: 8,
-  timeOnSite: 7,
+  authority: 30,
+  traffic: 30,
+  keywords: 20,
+  referringDomains: 12,
+  backlinks: 8,
 } as const
-
-export const SOURCE_WEIGHTS = {
-  sem: METRIC_POINTS.authority + METRIC_POINTS.traffic + METRIC_POINTS.keywords + METRIC_POINTS.backlinks,
-  sc: METRIC_POINTS.clicks + METRIC_POINTS.ctr + METRIC_POINTS.position,
-  ga: METRIC_POINTS.users + METRIC_POINTS.bounce + METRIC_POINTS.timeOnSite,
-} as const
-
-export type ScoreBreakdown = {
-  /** Coverage-normalised score, 0–100, judged only on metrics that reported. */
-  total: number
-  /** Points actually earned, out of `available`. */
-  raw: number
-  /** Maximum points obtainable given which metrics reported. */
-  available: number
-  /** Percentage of the full 100-point basis that was measurable. */
-  coverage: number
-  /** Human-readable reasons points were excluded from the basis. */
-  excluded: string[]
-  /** True when the GA4 users figure was not captured on import and is excluded from the basis. */
-  usersExcluded: boolean
-  authority: number
-  traffic: number
-  keywords: number
-  backlinks: number
-  clicks: number
-  ctr: number
-  position: number
-  users: number
-  bounce: number
-  timeOnSite: number
-}
-
-// Each metric scores linearly against a fixed benchmark, capped at its max points.
-function cap(val: number, max: number) { return Math.min(Math.max(val, 0), max) }
-function pct(val: number, benchmark: number, maxPts: number) {
-  return cap((val / benchmark) * maxPts, maxPts)
-}
 
 /**
- * A site cannot record zero users while recording sessions. When that happens the
- * users figure was not captured on import (GA4 exports the column as "Active users",
- * which older uploads missed), so the metric is excluded from the basis rather than
- * scored as a genuine zero.
+ * The value that earns full marks for each metric.
+ *
+ * Traffic and keywords are scored on a log scale: across this portfolio traffic
+ * spans four orders of magnitude, and a linear scale would flatten everything
+ * below the top performer to near zero. Authority Score, referring domains and
+ * backlinks span a narrower range and score linearly.
  */
-function usersUnreliable(ga: GAUpload): boolean {
-  return (!ga.users || ga.users === 0) && ga.sessions > 0
+export const BENCHMARKS = {
+  authority: 40,
+  traffic: 20_000,
+  keywords: 500,
+  referringDomains: 500,
+  backlinks: 4_000,
+} as const
+
+export const TOTAL_POINTS = Object.values(METRIC_POINTS).reduce((a, b) => a + b, 0)
+
+export type MetricKey = keyof typeof METRIC_POINTS
+
+export type ScoreBreakdown = {
+  /** Total score, 0–100. */
+  total: number
+  parts: Record<MetricKey, { points: number; max: number; value: number }>
 }
 
-export function computeScore(
-  sem: SEMUpload | null,
-  sc: SCUpload | null,
-  ga: GAUpload | null,
-): ScoreBreakdown {
+const clamp01 = (x: number) => Math.min(Math.max(x, 0), 1)
+
+/** Linear share of a benchmark. */
+const linear = (value: number, benchmark: number) => clamp01(value / benchmark)
+
+/** Log10 share of a benchmark — compresses wide ranges so mid-tier sites still separate. */
+const logarithmic = (value: number, benchmark: number) =>
+  clamp01(Math.log10(1 + Math.max(value, 0)) / Math.log10(1 + benchmark))
+
+export function computeScore(m: SemrushMetrics): ScoreBreakdown {
   const P = METRIC_POINTS
-  const excluded: string[] = []
-  let available = 0
+  const B = BENCHMARKS
 
-  // SEMrush
-  const authority = sem ? cap((sem.authority_score / 100) * P.authority, P.authority) : 0
-  const traffic   = sem ? pct(sem.organic_traffic, 5000, P.traffic) : 0
-  const keywords  = sem ? pct(sem.organic_keywords, 500, P.keywords) : 0
-  const backlinks = sem ? pct(sem.backlinks, 1000, P.backlinks) : 0
-  if (sem) available += SOURCE_WEIGHTS.sem
-  else excluded.push('SEMrush')
+  const parts = {
+    authority: {
+      value: m.authorityScore,
+      max: P.authority,
+      points: linear(m.authorityScore, B.authority) * P.authority,
+    },
+    traffic: {
+      value: m.organicTraffic,
+      max: P.traffic,
+      points: logarithmic(m.organicTraffic, B.traffic) * P.traffic,
+    },
+    keywords: {
+      value: m.organicKeywords,
+      max: P.keywords,
+      points: logarithmic(m.organicKeywords, B.keywords) * P.keywords,
+    },
+    referringDomains: {
+      value: m.referringDomains,
+      max: P.referringDomains,
+      points: linear(m.referringDomains, B.referringDomains) * P.referringDomains,
+    },
+    backlinks: {
+      value: m.backlinks,
+      max: P.backlinks,
+      points: linear(m.backlinks, B.backlinks) * P.backlinks,
+    },
+  } satisfies ScoreBreakdown['parts']
 
-  // Search Console — CTR: 5%+ full marks. Position: 1 full marks, 50+ zero.
-  const clicks   = sc ? pct(sc.clicks, 1000, P.clicks) : 0
-  const ctr      = sc ? cap((sc.ctr / 0.05) * P.ctr, P.ctr) : 0
-  const position = sc ? cap(((50 - sc.avg_position) / 49) * P.position, P.position) : 0
-  if (sc) available += SOURCE_WEIGHTS.sc
-  else excluded.push('Search Console')
+  const total = Math.round(
+    Object.values(parts).reduce((sum, p) => sum + p.points, 0)
+  )
 
-  // GA4 — Bounce: <30% full, >80% zero. Time on site: 3min+ full marks.
-  const badUsers   = ga ? usersUnreliable(ga) : false
-  const users      = ga && !badUsers ? pct(ga.users, 2000, P.users) : 0
-  const bounce     = ga ? cap(((0.8 - ga.bounce_rate) / 0.5) * P.bounce, P.bounce) : 0
-  const timeOnSite = ga ? cap((ga.avg_session_duration / 180) * P.timeOnSite, P.timeOnSite) : 0
-  if (ga) {
-    available += SOURCE_WEIGHTS.ga
-    if (badUsers) {
-      available -= P.users
-      excluded.push('GA4 users (not captured on import)')
-    }
-  } else {
-    excluded.push('GA4')
-  }
+  return { total, parts }
+}
 
-  const raw =
-    authority + traffic + keywords + backlinks +
-    clicks + ctr + position +
-    users + bounce + timeOnSite
+export const METRIC_LABELS: Record<MetricKey, string> = {
+  authority: 'Authority Score',
+  traffic: 'Organic Traffic',
+  keywords: 'Organic Keywords',
+  referringDomains: 'Referring Domains',
+  backlinks: 'Backlinks',
+}
 
-  const total = available > 0 ? Math.round((raw / available) * 100) : 0
+/** Short column headers for the table. */
+export const METRIC_SHORT: Record<MetricKey, string> = {
+  authority: 'Authority',
+  traffic: 'Traffic',
+  keywords: 'Keywords',
+  referringDomains: 'Ref. domains',
+  backlinks: 'Backlinks',
+}
 
-  return {
-    total,
-    raw: Math.round(raw),
-    available,
-    coverage: available,
-    excluded,
-    usersExcluded: badUsers,
-    authority: Math.round(authority),
-    traffic: Math.round(traffic),
-    keywords: Math.round(keywords),
-    backlinks: Math.round(backlinks),
-    clicks: Math.round(clicks),
-    ctr: Math.round(ctr),
-    position: Math.round(position),
-    users: Math.round(users),
-    bounce: Math.round(bounce),
-    timeOnSite: Math.round(timeOnSite),
-  }
+export const METRIC_HELP: Record<MetricKey, string> = {
+  authority: "SEMrush's 0–100 measure of overall domain strength, combining link profile, organic traffic and spam signals.",
+  traffic: 'Estimated monthly visitors arriving from unpaid search results.',
+  keywords: 'Number of distinct search terms the domain ranks for in the top 100 results.',
+  referringDomains: 'Number of separate websites linking to the domain. Diversity matters more than raw link count.',
+  backlinks: 'Total inbound links pointing at the domain, including multiple links from the same site.',
+}
+
+export function scoreBand(score: number): { label: string; color: string } {
+  if (score >= 70) return { label: 'Strong', color: '#22c55e' }
+  if (score >= 45) return { label: 'Developing', color: '#f59e0b' }
+  return { label: 'Needs work', color: '#ef4444' }
 }

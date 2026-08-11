@@ -5,8 +5,8 @@ import './globals.css'
 const dmSans = DM_Sans({ subsets: ['latin'], weight: ['300', '400', '500', '600', '700'] })
 
 export const metadata: Metadata = {
-  title: 'Tern Capital — Portfolio Dashboard',
-  description: 'Digital metrics dashboard for Tern Capital portfolio companies',
+  title: 'Tern Capital — Search Visibility Scorecard',
+  description: 'Organic search performance across the Tern Capital portfolio, scored out of 100 from SEMrush data',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

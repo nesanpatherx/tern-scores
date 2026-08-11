@@ -1,1 +1,0 @@
-ALTER TABLE portcos ADD COLUMN IF NOT EXISTS ga4_property_id TEXT;

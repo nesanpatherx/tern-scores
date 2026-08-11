@@ -1,209 +1,165 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
-import { fmtNum, fmtPct, fmtPos, fmtDate, fmtDuration } from '@/lib/format'
-import type { PortcoDB, SCUpload, GAUpload, SEMUpload } from '@/lib/supabase'
-import { METRIC_POINTS, SOURCE_WEIGHTS, type ScoreBreakdown } from '@/lib/score'
+import {
+  METRIC_POINTS,
+  METRIC_SHORT,
+  METRIC_LABELS,
+  BENCHMARKS,
+  scoreBand,
+  type MetricKey,
+  type ScoreBreakdown,
+} from '@/lib/score'
+import type { SemrushMetrics } from '@/lib/semrush'
+import type { Portco } from '@/lib/portcos'
 
 const C = {
   orange: '#eb5c32',
   nearBlack: '#1a1a18',
   charcoal: '#4a4a48',
-  darkGrey: '#999999',
+  darkGrey: '#8a8a88',
   lightGrey: '#d9d9d9',
+  hairline: '#ececea',
   offWhite: '#f7f4f0',
 }
 
-type ScoredRow = {
-  portco: PortcoDB
-  sc: SCUpload | null
-  ga: GAUpload | null
-  sem: SEMUpload | null
+export type ScoredPortco = {
+  portco: Portco
+  metrics: SemrushMetrics
   score: ScoreBreakdown
+  rank: number
 }
 
-type Group = { group: string; rows: ScoredRow[] }
+const METRIC_ORDER: MetricKey[] = ['authority', 'traffic', 'keywords', 'referringDomains', 'backlinks']
 
-type MetricItem = { name: string; pts: number; max: number; excluded?: boolean }
-type MetricGroup = { label: string; present: boolean; weight: number; items: MetricItem[] }
-
-function Dash() {
-  return (
-    <span title="No data" style={{ color: C.lightGrey, display: 'inline-flex', alignItems: 'center' }}>
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-        <line x1="4" y1="4" x2="20" y2="20"/>
-      </svg>
-    </span>
-  )
+function fmt(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 10_000) return `${Math.round(n / 1000)}k`
+  if (n >= 1_000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
 }
 
-function ScoreBar({ score, coverage }: { score: number; coverage: number }) {
-  const color = score >= 70 ? '#22c55e' : score >= 40 ? '#f59e0b' : '#ef4444'
+function ScorePill({ score }: { score: number }) {
+  const band = scoreBand(score)
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full" style={{ background: C.lightGrey, minWidth: 48 }}>
-        <div className="h-1.5 rounded-full transition-all" style={{ width: `${score}%`, background: color }} />
+    <div className="flex items-center gap-2.5">
+      <div className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: C.hairline, minWidth: 44 }}>
+        <div className="h-full rounded-full" style={{ width: `${score}%`, background: band.color }} />
       </div>
-      <span className="text-[11px] font-mono font-bold w-6 text-right" style={{ color }}>{score}</span>
-      {coverage < 100 && (
-        <span
-          title={`Scored on ${coverage}% of sources — missing data is excluded rather than penalised`}
-          className="text-[9px] font-mono px-1 shrink-0"
-          style={{ color: C.darkGrey, border: `1px solid ${C.lightGrey}`, borderRadius: 2 }}
-        >
-          {coverage}%
-        </span>
-      )}
+      <span className="font-mono text-[13px] font-bold tabular-nums w-[22px] text-right" style={{ color: band.color }}>
+        {score}
+      </span>
     </div>
   )
 }
 
-function Cell({ children, className = '', divider = false, style }: {
-  children: React.ReactNode; className?: string; divider?: boolean; style?: React.CSSProperties
-}) {
+function MetricBar({ label, points, max, value }: { label: string; points: number; max: number; value: number }) {
+  const share = max > 0 ? (points / max) * 100 : 0
   return (
-    <td
-      className={`px-2 py-2 text-right text-[11px] whitespace-nowrap font-mono ${className}`}
-      style={{ ...(divider ? { borderLeft: `1px solid ${C.lightGrey}` } : {}), ...style }}
-    >
-      {children}
-    </td>
+    <div className="flex items-center gap-2.5">
+      <span className="w-[104px] shrink-0 text-[11px]" style={{ color: C.darkGrey }}>{label}</span>
+      <span className="w-[52px] shrink-0 font-mono text-[11px] tabular-nums text-right" style={{ color: C.charcoal }}>
+        {fmt(value)}
+      </span>
+      <div className="flex-1 h-[4px] rounded-full overflow-hidden" style={{ background: C.hairline, minWidth: 40 }}>
+        <div className="h-full rounded-full" style={{ width: `${share}%`, background: C.orange }} />
+      </div>
+      <span className="w-[46px] shrink-0 font-mono text-[11px] tabular-nums text-right" style={{ color: C.charcoal }}>
+        {points.toFixed(1)}<span style={{ color: C.lightGrey }}>/{max}</span>
+      </span>
+    </div>
   )
 }
 
-function ColHead({ children, divider = false }: { children: React.ReactNode; divider?: boolean }) {
-  return (
-    <th
-      className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap"
-      style={{ color: C.darkGrey, borderLeft: divider ? `1px solid ${C.lightGrey}` : undefined }}
-    >
-      {children}
-    </th>
-  )
-}
-
-function ctrColor(ctr?: number) {
-  if (!ctr) return ''
-  if (ctr >= 0.05) return 'text-green-600'
-  if (ctr >= 0.02) return 'text-amber-500'
-  return 'text-red-500'
-}
-function positionColor(pos?: number) {
-  if (!pos) return ''
-  if (pos <= 10) return 'text-green-600'
-  if (pos <= 30) return 'text-amber-500'
-  return 'text-red-500'
-}
-
-function CompanyRow({ portco, sc, ga, sem, score }: ScoredRow) {
-  const [expanded, setExpanded] = useState(false)
-  const rowLastUpdated = [sc?.uploaded_at, ga?.uploaded_at, sem?.uploaded_at].filter(Boolean).sort().pop()
+function Row({ entry, isLast }: { entry: ScoredPortco; isLast: boolean }) {
+  const [open, setOpen] = useState(false)
+  const { portco, metrics, score, rank } = entry
+  const band = scoreBand(score.total)
 
   return (
     <>
       <tr
-        className="group transition-colors hover:bg-[#faf9f7] cursor-pointer"
-        style={{ borderBottom: `1px solid ${C.offWhite}` }}
-        onClick={() => setExpanded(e => !e)}
+        onClick={() => setOpen(o => !o)}
+        className="cursor-pointer transition-colors hover:bg-[#fbfaf8]"
+        style={{ borderBottom: open || isLast ? 'none' : `1px solid ${C.hairline}` }}
       >
-        <td
-          className="px-3 py-2 sticky left-0 bg-white group-hover:bg-[#faf9f7] transition-colors w-[170px] min-w-[170px]"
-          style={{ borderRight: `1px solid ${C.lightGrey}` }}
-        >
-          <div className="flex items-center gap-2">
-            <img src={`https://www.google.com/s2/favicons?sz=32&domain=${portco.domain}`} alt="" className="w-3.5 h-3.5 shrink-0" style={{ opacity: 0.7 }} />
+        <td className="pl-4 pr-1 py-[11px] align-middle">
+          <span className="font-mono text-[11px] tabular-nums" style={{ color: C.lightGrey }}>
+            {String(rank).padStart(2, '0')}
+          </span>
+        </td>
+        <td className="px-2 py-[11px] align-middle">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://www.google.com/s2/favicons?sz=64&domain=${portco.domain}`}
+              alt=""
+              width={16}
+              height={16}
+              className="shrink-0 rounded-sm"
+              style={{ opacity: 0.85 }}
+            />
             <div className="min-w-0">
-              <div className="font-semibold text-[12px] leading-tight truncate" style={{ color: C.nearBlack }}>{portco.name}</div>
-              {rowLastUpdated && <div className="text-[10px]" style={{ color: C.lightGrey }}>{fmtDate(rowLastUpdated)}</div>}
+              <div className="text-[13px] font-semibold leading-tight truncate" style={{ color: C.nearBlack }}>
+                {portco.name}
+              </div>
+              <a
+                href={`https://${portco.domain}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="text-[11px] hover:underline truncate block"
+                style={{ color: C.darkGrey }}
+              >
+                {portco.domain}
+              </a>
             </div>
           </div>
         </td>
-        <td className="px-3 py-2 w-[150px]" style={{ borderLeft: `1px solid ${C.lightGrey}` }}>
-          <ScoreBar score={score.total} coverage={score.coverage} />
+
+        <td className="px-3 py-[11px] align-middle w-[132px]">
+          <ScorePill score={score.total} />
         </td>
-        <Cell divider style={{ color: score.authority > 0 ? C.charcoal : undefined }}>{sem ? (sem.authority_score ?? 0) : <Dash />}</Cell>
-        <Cell style={{ color: C.charcoal }}>
-          {sem && sem.organic_traffic
-            ? fmtNum(sem.organic_traffic)
-            : sc?.clicks
-            ? <span>{fmtNum(sc.clicks)}<sup style={{ fontSize: '7px', color: C.darkGrey, marginLeft: '1px' }}>GSC</sup></span>
-            : sem ? 0 : <Dash />}
-        </Cell>
-        <Cell style={{ color: C.charcoal }}>{sem ? fmtNum(sem.organic_keywords) : <Dash />}</Cell>
-        <Cell style={{ color: C.charcoal }}>{sem ? fmtNum(sem.backlinks) : <Dash />}</Cell>
-        <Cell divider style={{ color: C.charcoal }}>{sc ? fmtNum(sc.clicks) : <Dash />}</Cell>
-        <Cell className={ctrColor(sc?.ctr)}>{sc ? fmtPct(sc.ctr) : <Dash />}</Cell>
-        <Cell className={positionColor(sc?.avg_position)}>{sc ? fmtPos(sc.avg_position) : <Dash />}</Cell>
-        <Cell divider style={{ color: C.charcoal }}>{ga ? fmtNum(ga.users) : <Dash />}</Cell>
-        <Cell style={{ color: C.charcoal }}>{ga ? fmtDuration(ga.avg_session_duration) : <Dash />}</Cell>
-        <Cell style={{ color: C.charcoal }}>{ga ? fmtPct(ga.bounce_rate) : <Dash />}</Cell>
-        <td className="px-2 py-2 text-[10px]" style={{ color: C.darkGrey }}>{expanded ? '▲' : '▼'}</td>
+
+        <td className="px-3 py-[11px] align-middle w-[96px]">
+          <span className="text-[11px] font-semibold" style={{ color: band.color }}>{band.label}</span>
+        </td>
+
+        {METRIC_ORDER.map(k => (
+          <td
+            key={k}
+            className="px-3 py-[11px] text-right font-mono text-[12px] tabular-nums align-middle"
+            style={{ color: C.charcoal }}
+          >
+            {metrics.error ? <span style={{ color: C.lightGrey }}>·</span> : fmt(score.parts[k].value)}
+          </td>
+        ))}
+
+        <td className="pr-4 pl-1 py-[11px] text-right align-middle">
+          <span className="text-[9px]" style={{ color: C.lightGrey }}>{open ? '▲' : '▼'}</span>
+        </td>
       </tr>
-      {expanded && (
-        <tr style={{ background: '#fafaf9', borderBottom: `1px solid ${C.lightGrey}` }}>
-          <td colSpan={13} className="px-4 py-3">
-            <div className="grid grid-cols-3 gap-6 text-[11px]">
-              {([
-                { label: 'SEMrush', present: !!sem, weight: SOURCE_WEIGHTS.sem, items: [
-                  { name: 'Authority', pts: score.authority, max: METRIC_POINTS.authority },
-                  { name: 'Traffic', pts: score.traffic, max: METRIC_POINTS.traffic },
-                  { name: 'Keywords', pts: score.keywords, max: METRIC_POINTS.keywords },
-                  { name: 'Backlinks', pts: score.backlinks, max: METRIC_POINTS.backlinks },
-                ]},
-                { label: 'Search Console', present: !!sc, weight: SOURCE_WEIGHTS.sc, items: [
-                  { name: 'Clicks', pts: score.clicks, max: METRIC_POINTS.clicks },
-                  { name: 'CTR', pts: score.ctr, max: METRIC_POINTS.ctr },
-                  { name: 'Position', pts: score.position, max: METRIC_POINTS.position },
-                ]},
-                { label: 'GA4', present: !!ga, weight: SOURCE_WEIGHTS.ga, items: [
-                  { name: 'Users', pts: score.users, max: METRIC_POINTS.users, excluded: score.usersExcluded },
-                  { name: 'Bounce rate', pts: score.bounce, max: METRIC_POINTS.bounce },
-                  { name: 'Time on site', pts: score.timeOnSite, max: METRIC_POINTS.timeOnSite },
-                ]},
-              ] as MetricGroup[]).map(group => {
-                const dropped = group.items.reduce((s, i) => s + (i.excluded ? i.max : 0), 0)
-                return (
-                <div key={group.label} style={{ opacity: group.present ? 1 : 0.45 }}>
-                  <div className="flex items-baseline justify-between mb-2">
-                    <span className="font-semibold" style={{ color: C.charcoal }}>{group.label}</span>
-                    <span className="text-[10px]" style={{ color: C.darkGrey }}>
-                      {!group.present
-                        ? 'no data — excluded'
-                        : dropped > 0
-                        ? `${group.weight - dropped} of ${group.weight}pts`
-                        : `${group.weight}pts`}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {group.items.map(item => (
-                      <div key={item.name} className="flex items-center gap-2" style={{ opacity: item.excluded ? 0.4 : 1 }}>
-                        <span className="w-20 shrink-0" style={{ color: C.darkGrey }}>{item.name}</span>
-                        <div className="flex-1 h-1 rounded-full" style={{ background: C.lightGrey }}>
-                          {!item.excluded && (
-                            <div className="h-1 rounded-full" style={{ width: `${(item.pts / item.max) * 100}%`, background: C.orange }} />
-                          )}
-                        </div>
-                        <span className="font-mono w-8 text-right" style={{ color: C.charcoal }}>
-                          {item.excluded ? 'excl.' : `${item.pts}/${item.max}`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                )
-              })}
+
+      {open && (
+        <tr style={{ borderBottom: isLast ? 'none' : `1px solid ${C.hairline}` }}>
+          <td colSpan={9} className="px-4 pb-4 pt-1" style={{ background: '#fbfaf8' }}>
+            <div className="grid gap-x-10 gap-y-2 md:grid-cols-2 max-w-[900px]">
+              {METRIC_ORDER.map(k => (
+                <MetricBar
+                  key={k}
+                  label={METRIC_LABELS[k]}
+                  points={score.parts[k].points}
+                  max={score.parts[k].max}
+                  value={score.parts[k].value}
+                />
+              ))}
             </div>
-            <div className="mt-3 pt-3 text-[11px]" style={{ borderTop: `1px solid ${C.lightGrey}`, color: C.darkGrey }}>
-              <span className="font-mono" style={{ color: C.charcoal }}>{score.raw}/{score.available}</span>
-              {' '}points earned
-              {score.coverage < 100 && <> · scored on <span style={{ color: C.charcoal }}>{score.coverage}%</span> of the full basis</>}
-              {' → '}
-              <span className="font-mono font-bold" style={{ color: C.charcoal }}>{score.total}/100</span>
-              {score.excluded.length > 0 && (
-                <span> · excluded: {score.excluded.join(', ')}</span>
-              )}
+            <div className="mt-3 pt-2.5 text-[11px] flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: `1px solid ${C.hairline}`, color: C.darkGrey }}>
+              <span>
+                Total <span className="font-mono font-bold" style={{ color: C.nearBlack }}>{score.total}/100</span>
+              </span>
+              <span>SEMrush <span style={{ color: C.charcoal }}>{metrics.database.toUpperCase()}</span> database</span>
+              {metrics.error && <span style={{ color: C.orange }}>Lookup failed: {metrics.error}</span>}
             </div>
           </td>
         </tr>
@@ -212,69 +168,91 @@ function CompanyRow({ portco, sc, ga, sem, score }: ScoredRow) {
   )
 }
 
-function GroupTable({ group, rows }: Group) {
+function Head() {
+  return (
+    <thead>
+      <tr style={{ background: C.offWhite, borderBottom: `1px solid ${C.lightGrey}` }}>
+        <th className="pl-4 pr-1 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.08em] w-[34px]" style={{ color: C.darkGrey }}>
+          #
+        </th>
+        <th className="px-2 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.darkGrey }}>
+          Company
+        </th>
+        <th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.charcoal }}>
+          Score / 100
+        </th>
+        <th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.darkGrey }}>
+          Band
+        </th>
+        {METRIC_ORDER.map(k => (
+          <th
+            key={k}
+            title={`${METRIC_LABELS[k]} — ${METRIC_POINTS[k]}pts, full marks at ${BENCHMARKS[k].toLocaleString()}`}
+            className="px-3 py-2 text-right text-[9px] font-semibold uppercase tracking-[0.08em] whitespace-nowrap"
+            style={{ color: C.darkGrey }}
+          >
+            {METRIC_SHORT[k]}
+          </th>
+        ))}
+        <th className="pr-4 pl-1 w-[24px]" style={{ background: C.offWhite }} />
+      </tr>
+    </thead>
+  )
+}
+
+function GroupSection({ group, rows }: { group: string; rows: ScoredPortco[] }) {
   const [collapsed, setCollapsed] = useState(false)
-  const avgScore = rows.length ? Math.round(rows.reduce((s, r) => s + r.score.total, 0) / rows.length) : 0
-  const scoreColor = avgScore >= 70 ? '#22c55e' : avgScore >= 40 ? '#f59e0b' : '#ef4444'
+  const avg = rows.length ? Math.round(rows.reduce((s, r) => s + r.score.total, 0) / rows.length) : 0
+  const band = scoreBand(avg)
 
   return (
-    <div style={{ background: '#ffffff', border: `1px solid ${C.lightGrey}` }}>
+    <section style={{ background: '#ffffff', border: `1px solid ${C.lightGrey}` }}>
       <button
         onClick={() => setCollapsed(c => !c)}
-        className="w-full px-4 py-2.5 flex items-center justify-between transition-colors hover:opacity-90"
-        style={{ background: C.nearBlack, borderBottom: collapsed ? 'none' : `1px solid ${C.lightGrey}` }}
+        className="w-full px-4 py-3 flex items-center justify-between transition-opacity hover:opacity-90"
+        style={{ background: C.nearBlack }}
       >
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold" style={{ color: '#ffffff' }}>{group}</span>
-          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{rows.length} companies</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-[11px] font-mono font-bold" style={{ color: scoreColor }}>avg {avgScore}/100</span>
-          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px' }}>{collapsed ? '▶' : '▼'}</span>
-        </div>
+        <span className="flex items-baseline gap-2.5">
+          <span className="text-[13px] font-semibold" style={{ color: '#ffffff' }}>{group}</span>
+          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            {rows.length} {rows.length === 1 ? 'company' : 'companies'}
+          </span>
+        </span>
+        <span className="flex items-center gap-3.5">
+          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            group average{' '}
+            <span className="font-mono font-bold" style={{ color: band.color }}>{avg}</span>
+          </span>
+          <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{collapsed ? '▶' : '▼'}</span>
+        </span>
       </button>
+
       {!collapsed && (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${C.lightGrey}` }}>
-                <th rowSpan={2} className="text-left px-3 py-2 text-[9px] font-semibold uppercase tracking-wider sticky left-0 z-10 w-[170px]"
-                  style={{ background: C.offWhite, color: C.darkGrey, borderRight: `1px solid ${C.lightGrey}` }}>Company</th>
-                <th rowSpan={2} className="px-3 py-2 text-[9px] font-semibold uppercase tracking-wider w-[150px]"
-                  style={{ borderLeft: `1px solid ${C.lightGrey}`, background: C.offWhite, color: C.charcoal }}>Score /100</th>
-                {[{ label: 'SEMrush', cols: 4 }, { label: 'Search Console', cols: 3 }, { label: 'GA4', cols: 3 }].map(g => (
-                  <th key={g.label} colSpan={g.cols} className="py-1.5 text-center text-[9px] font-semibold uppercase tracking-wider"
-                    style={{ borderLeft: `1px solid ${C.lightGrey}`, background: C.offWhite, color: C.charcoal }}>{g.label}</th>
-                ))}
-                <th rowSpan={2} style={{ background: C.offWhite, width: 24 }} />
-              </tr>
-              <tr style={{ borderBottom: `2px solid ${C.nearBlack}`, background: C.offWhite }}>
-                <ColHead divider>Auth</ColHead>
-                <ColHead>Traffic</ColHead>
-                <ColHead>KWs</ColHead>
-                <ColHead>Links</ColHead>
-                <ColHead divider>Clicks</ColHead>
-                <ColHead>CTR</ColHead>
-                <ColHead>Pos</ColHead>
-                <ColHead divider>Users</ColHead>
-                <ColHead>Time</ColHead>
-                <ColHead>Bounce</ColHead>
-              </tr>
-            </thead>
+          <table className="w-full border-collapse min-w-[860px]">
+            <Head />
             <tbody>
-              {rows.map(r => <CompanyRow key={r.portco.id} {...r} />)}
+              {rows.map((r, i) => (
+                <Row key={r.portco.domain} entry={r} isLast={i === rows.length - 1} />
+              ))}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+    </section>
   )
 }
 
-export default function ScoresTable({ groups }: { groups: Group[] }) {
+export default function ScoresTable({
+  groups,
+}: {
+  groups: { group: string; rows: ScoredPortco[] }[]
+}) {
   return (
     <div className="space-y-4">
-      {groups.map(g => <GroupTable key={g.group} {...g} />)}
+      {groups.map(g => (
+        <GroupSection key={g.group} group={g.group} rows={g.rows} />
+      ))}
     </div>
   )
 }
