@@ -120,3 +120,39 @@ export function scoreBand(score: number): { label: string; color: string } {
   if (score >= 45) return { label: 'Developing', color: '#f59e0b' }
   return { label: 'Needs work', color: '#ef4444' }
 }
+
+export type ImprovementArea = {
+  key: MetricKey
+  label: string
+  /** Points left on the table for this metric. */
+  gap: number
+  /** Current raw value of the metric. */
+  value: number
+  /** Value needed for full marks. */
+  benchmark: number
+  /** Share of this metric already earned, 0–1. */
+  earned: number
+}
+
+/**
+ * The metrics where the most points are currently unearned — i.e. where effort buys the
+ * biggest score movement. Ordered by absolute points available, not percentage, so a
+ * heavily weighted metric that is half-earned outranks a light one that is untouched.
+ */
+export function improvementAreas(score: ScoreBreakdown, limit = 3): ImprovementArea[] {
+  return (Object.keys(METRIC_POINTS) as MetricKey[])
+    .map(key => {
+      const part = score.parts[key]
+      return {
+        key,
+        label: METRIC_LABELS[key],
+        gap: part.max - part.points,
+        value: part.value,
+        benchmark: BENCHMARKS[key],
+        earned: part.max > 0 ? part.points / part.max : 0,
+      }
+    })
+    .filter(a => a.gap > 0.05)
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, limit)
+}

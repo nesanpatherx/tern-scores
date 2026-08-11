@@ -1,4 +1,5 @@
 import ScoresTable, { type ScoredPortco } from '@/components/ScoresTable'
+import ScoreCards from '@/components/ScoreCards'
 import MethodologyNote from '@/components/MethodologyNote'
 import { PORTCOS, GROUP_ORDER } from '@/lib/portcos'
 import { fetchPortcoMetrics, REVALIDATE_SECONDS } from '@/lib/semrush'
@@ -56,6 +57,17 @@ function StatCard({
   )
 }
 
+function SectionHeading({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 mt-8 mb-3 first:mt-0">
+      <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.charcoal }}>
+        {title}
+      </h2>
+      {hint && <span className="text-[11px] hidden sm:inline" style={{ color: C.darkGrey }}>{hint}</span>}
+    </div>
+  )
+}
+
 export default async function ScoresDashboard() {
   const scored = await getScores()
 
@@ -64,6 +76,7 @@ export default async function ScoresDashboard() {
   const strong = scored.filter(r => r.score.total >= 70).length
   const needsWork = scored.filter(r => r.score.total < 45).length
   const failures = scored.filter(r => r.metrics.error)
+  const partials = scored.filter(r => !r.metrics.error && r.metrics.partialError)
 
   const groups = GROUP_ORDER.map(group => ({
     group,
@@ -105,19 +118,32 @@ export default async function ScoresDashboard() {
           <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: C.charcoal }}>
             Every company scored out of 100 on the same five SEMrush measures of organic search
             strength. Figures are pulled live from the SEMrush API — no manual uploads, so each
-            company is measured on exactly the same basis. Click any row to see how its score is built.
+            company is measured on exactly the same basis.
           </p>
         </div>
 
         {failures.length > 0 && (
           <div
-            className="mb-5 px-4 py-3 text-[12px]"
+            className="mb-4 px-4 py-3 text-[12px] leading-relaxed"
             style={{ background: '#fff8f5', border: `1px solid ${C.orange}`, color: C.charcoal }}
           >
             <strong>SEMrush lookup failed</strong> for {failures.length}{' '}
             {failures.length === 1 ? 'company' : 'companies'}:{' '}
-            {failures.map(f => f.portco.name).join(', ')}. Those rows show no data rather than a zero
-            score — expand a row for the error.
+            {failures.map(f => f.portco.name).join(', ')}. These show no data rather than a
+            misleading zero.{' '}
+            <span style={{ color: C.darkGrey }}>{failures[0].metrics.error}</span>
+          </div>
+        )}
+
+        {partials.length > 0 && (
+          <div
+            className="mb-4 px-4 py-3 text-[12px] leading-relaxed"
+            style={{ background: '#ffffff', border: `1px solid ${C.lightGrey}`, color: C.charcoal }}
+          >
+            <strong>Partial data</strong> for {partials.map(p => p.portco.name).join(', ')} — some
+            figures returned and are real, others did not and count as zero, so{' '}
+            {partials.length === 1 ? 'this score is' : 'these scores are'} understated. Expand the
+            row for detail.
           </div>
         )}
 
@@ -138,6 +164,16 @@ export default async function ScoresDashboard() {
           <StatCard value={needsWork} label="Scoring under 45" sub="priority for attention" />
         </div>
 
+        <SectionHeading
+          title="Ranked by score"
+          hint="Hover a card for the biggest gains available"
+        />
+        <ScoreCards entries={scored} />
+
+        <SectionHeading
+          title="Full metrics by group"
+          hint="Click a row for the score breakdown"
+        />
         <ScoresTable groups={groups} />
 
         <MethodologyNote />

@@ -160,6 +160,7 @@ function Row({ entry, isLast }: { entry: ScoredPortco; isLast: boolean }) {
               </span>
               <span>SEMrush <span style={{ color: C.charcoal }}>{metrics.database.toUpperCase()}</span> database</span>
               {metrics.error && <span style={{ color: C.orange }}>Lookup failed: {metrics.error}</span>}
+              {metrics.partialError && <span style={{ color: C.orange }}>Partial data: {metrics.partialError}</span>}
             </div>
           </td>
         </tr>
