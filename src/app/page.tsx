@@ -2,7 +2,7 @@ import ScoreCards from '@/components/ScoreCards'
 import ScoresTable from '@/components/ScoresTable'
 import AiVisibility from '@/components/AiVisibility'
 import MethodologyNote from '@/components/MethodologyNote'
-import { PORTFOLIO, DATA_AS_OF, MEASUREMENT_START, H } from '@/lib/data'
+import { PORTFOLIO, DATA_AS_OF, MEASUREMENT_START, LATEST_MONTH, H } from '@/lib/data'
 import { GROUP_ORDER } from '@/lib/portcos'
 import { scorePortfolio, scoreBand } from '@/lib/score'
 import { compact, signedPct, monthLabel } from '@/lib/format'
@@ -138,9 +138,16 @@ export default function Page() {
           <p className="text-[13px] mt-2 leading-relaxed" style={{ color: C.body }}>
             <strong style={{ color: C.ink }}>This is year-to-date data for 2026 — {period}.</strong>{' '}
             Every company is scored out of 100 across three pillars: classic search, visibility inside
-            AI answers, and domain authority. Every percentage change on this page measures movement
-            since the start of the year, not month on month. Figures come from SEMrush, measured on the
-            UK database throughout.
+            AI answers, and domain authority. Every percentage change measures movement since the start
+            of the year, not month on month.
+          </p>
+          <p className="text-[12px] mt-2 leading-relaxed" style={{ color: C.muted }}>
+            <strong style={{ color: C.body }}>What the numbers are.</strong> Current figures are
+            SEMrush&apos;s {monthLabel(LATEST_MONTH)} monthly reading — the last complete month — captured{' '}
+            {asOf}. They are not a partial August count. Traffic means{' '}
+            <strong style={{ color: C.body }}>estimated visits from unpaid Google results only</strong>;
+            direct, email, referral and paid visitors are not included, so a zero here does not mean a
+            site had no visitors. Measured on the SEMrush UK database except where a row says otherwise.
           </p>
         </div>
 
@@ -167,7 +174,7 @@ export default function Page() {
           <Kpi value={avg} label="Portfolio average" sub="out of 100" color={scoreBand(avg).color} />
           <Kpi
             value={compact(latestTraffic)}
-            label="Monthly organic visits"
+            label="Monthly organic search visits"
             sub={trafficSincePct !== null ? `${signedPct(trafficSincePct)} since ${monthLabel(MEASUREMENT_START)}` : 'portfolio total'}
             delta={trafficPct !== null ? { text: signedPct(trafficPct), positive: trafficPct >= 0 } : undefined}
           />

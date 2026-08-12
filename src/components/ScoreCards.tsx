@@ -85,7 +85,7 @@ function Card({ s }: { s: Scored }) {
           <Sparkline history={s.history} color={band.color} />
           <div className="flex items-baseline justify-between mt-0.5">
             <span className="text-[10px]" style={{ color: C.muted }}>
-              {compact(s.latest[H.traffic])} visits/mo
+              {compact(s.latest[H.traffic])} organic visits
             </span>
             {(() => {
               const t = trend(s.baseline[H.traffic], s.latest[H.traffic], s.trafficYtdPct)
@@ -124,7 +124,7 @@ function Card({ s }: { s: Scored }) {
         aria-hidden={!pinned}
       >
         <div className="text-[8.5px] font-semibold uppercase tracking-[0.12em] mb-2.5" style={{ color: 'rgba(255,255,255,0.42)' }}>
-          Biggest gains available
+          Where the most score points are unearned
         </div>
         {areas.length === 0 ? (
           <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.7)' }}>Every benchmark met.</p>
@@ -135,7 +135,7 @@ function Card({ s }: { s: Scored }) {
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-[10.5px] font-medium truncate" style={{ color: '#fff' }}>{a.label}</span>
                   <span className="font-mono text-[10px] tabular-nums shrink-0" style={{ color: C.orange }}>
-                    +{(a.max - a.points).toFixed(1)}
+                    +{(a.max - a.points).toFixed(1)} pts
                   </span>
                 </div>
                 <div className="mt-1 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.14)' }}>

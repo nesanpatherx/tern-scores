@@ -1,4 +1,4 @@
-import { H, MEASUREMENT_START } from '@/lib/data'
+import { H, MEASUREMENT_START, LATEST_MONTH } from '@/lib/data'
 import type { Scored } from '@/lib/score'
 import { monthLabel, signedPct, trend, TREND_COLOR } from '@/lib/format'
 
@@ -97,10 +97,11 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
             <h2 className="text-[14px] font-semibold" style={{ color: '#fff' }}>AI visibility</h2>
-            <p className="text-[11px] mt-1 max-w-[620px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-              How often each company is cited inside Google&apos;s AI Overview — the answer box that
-              increasingly replaces the click. A site can hold its rankings and still lose traffic if it
-              is not being quoted here.
+            <p className="text-[11px] mt-1 max-w-[660px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              Of the search terms each company already ranks for, how many show a Google AI Overview
+              with the company cited in it. It is not arbitrary questions — the count is bounded by
+              their existing keyword set, so it cannot be inflated by asking something narrow enough.
+              A site can hold its rankings and still lose traffic if it is not quoted in that answer box.
             </p>
           </div>
           <div className="text-right">
@@ -131,7 +132,7 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
               </div>
             </div>
             <div className="text-[9.5px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              citations · {period}
+              total citations across all {scored.length} companies, {monthLabel(LATEST_MONTH)}
             </div>
           </div>
         </div>
@@ -205,11 +206,15 @@ export default function AiVisibility({ scored }: { scored: Scored[] }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="text-[22px] font-bold tabular-nums leading-none" style={{ color: C.ink }}>{cited}</div>
-              <div className="text-[9.5px] mt-1.5 leading-tight" style={{ color: C.muted }}>cited in AI answers</div>
+              <div className="text-[9.5px] mt-1.5 leading-tight" style={{ color: C.muted }}>
+                companies cited in at least one AI Overview
+              </div>
             </div>
             <div>
               <div className="text-[22px] font-bold tabular-nums leading-none" style={{ color: absent > 0 ? C.down : C.ink }}>{absent}</div>
-              <div className="text-[9.5px] mt-1.5 leading-tight" style={{ color: C.muted }}>absent entirely</div>
+              <div className="text-[9.5px] mt-1.5 leading-tight" style={{ color: C.muted }}>
+                never cited in any AI Overview
+              </div>
             </div>
           </div>
 

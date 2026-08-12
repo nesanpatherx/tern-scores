@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { H } from '@/lib/data'
+import { H, LATEST_MONTH, TOP_KEYWORDS, SEARCH_MARKET, SEARCH_MARKET_NOTE } from '@/lib/data'
 import { METRICS, PILLARS, scoreBand, type MetricKey, type PillarKey, type Scored } from '@/lib/score'
 import { compact, monthLabel, trend, TREND_COLOR } from '@/lib/format'
 
@@ -70,8 +70,19 @@ function Row({ s, isLast }: { s: Scored; isLast: boolean }) {
               style={{ opacity: 0.85 }}
             />
             <div className="min-w-0">
-              <div className="text-[12.5px] font-semibold leading-tight truncate" style={{ color: C.ink }}>
-                {record.name}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[12.5px] font-semibold leading-tight truncate" style={{ color: C.ink }}>
+                  {record.name}
+                </span>
+                {SEARCH_MARKET[record.domain] && (
+                  <span
+                    title={SEARCH_MARKET_NOTE[SEARCH_MARKET[record.domain] as 'thin' | 'none']}
+                    className="text-[8px] font-semibold uppercase tracking-wide px-1 py-px rounded shrink-0"
+                    style={{ background: '#f2ece7', color: C.muted }}
+                  >
+                    {SEARCH_MARKET[record.domain] === 'none' ? 'no search market' : 'thin market'}
+                  </span>
+                )}
               </div>
               <a
                 href={`https://${record.domain}`}
@@ -124,6 +135,34 @@ function Row({ s, isLast }: { s: Scored; isLast: boolean }) {
       {open && (
         <tr style={{ borderBottom: isLast ? 'none' : `1px solid ${C.hair}` }}>
           <td colSpan={COLUMNS.length + 5} className="px-4 pt-1 pb-4" style={{ background: '#fbfaf8' }}>
+            {/* What the company actually ranks for — a score alone cannot answer this. */}
+            {(TOP_KEYWORDS[record.domain]?.length ?? 0) > 0 && (
+              <div className="mb-4 pb-3.5" style={{ borderBottom: `1px solid ${C.line}` }}>
+                <div className="text-[9.5px] font-semibold uppercase tracking-[0.1em] mb-2" style={{ color: C.body }}>
+                  Top keywords driving this traffic
+                </div>
+                <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+                  {TOP_KEYWORDS[record.domain].map(k => (
+                    <span key={k.keyword} className="text-[11px] whitespace-nowrap" style={{ color: C.muted }}>
+                      <span style={{ color: C.ink }}>{k.keyword}</span>
+                      {' · '}#{k.position}
+                      {' · '}<span className="font-mono tabular-nums">{compact(k.traffic)}</span> visits
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {SEARCH_MARKET[record.domain] && (
+              <div
+                className="mb-4 px-3 py-2 text-[11px] leading-snug rounded"
+                style={{ background: '#fff8f5', border: `1px solid ${C.line}`, color: C.body }}
+              >
+                <strong style={{ color: C.ink }}>Limited search market.</strong>{' '}
+                {SEARCH_MARKET_NOTE[SEARCH_MARKET[record.domain] as 'thin' | 'none']}
+              </div>
+            )}
+
             <div className="grid gap-x-8 gap-y-4 md:grid-cols-3">
               {(Object.keys(PILLARS) as PillarKey[]).map(pk => (
                 <div key={pk}>
@@ -235,11 +274,14 @@ function GroupSection({ group, rows }: { group: string; rows: Scored[] }) {
                     style={{ color: C.body, borderLeft: `1px solid ${C.line}` }}
                   >
                     {PILLARS[pillar].label} · {PILLARS[pillar].points}pts
+                    <span className="normal-case tracking-normal font-normal" style={{ color: C.muted }}>
+                      {' '}({monthLabel(LATEST_MONTH)})
+                    </span>
                   </th>
                 ))}
                 <th colSpan={2} className="px-3 py-1.5 text-center text-[8.5px] font-semibold uppercase tracking-[0.1em]"
                   style={{ color: C.body, borderLeft: `1px solid ${C.line}` }}>
-                  YTD
+                  Traffic YTD
                 </th>
               </tr>
               <tr style={{ background: C.cream, borderBottom: `1px solid ${C.line}` }}>

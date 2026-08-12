@@ -263,3 +263,127 @@ export const PORTFOLIO: readonly PortcoRecord[] = [
 export const H = {
   month: 0, keywords: 1, traffic: 2, cost: 3, top3: 4, aiOverview: 5, featuredSnippet: 6, peopleAlsoAsk: 7,
 } as const
+
+/**
+ * How much search demand actually exists in each company's category.
+ *
+ * Several portcos sell through procurement or tender, not search. Ranking them
+ * against a company with real category volume misreads "no market" as "failing",
+ * so the UI badges them rather than silently penalising them.
+ */
+export type SearchMarket = 'normal' | 'thin' | 'none'
+
+export const SEARCH_MARKET: Record<string, SearchMarket> = {
+  'schoolscreener.com': 'none',
+  'formainnovations.com': 'none',
+  'crossdata.co.uk': 'thin',
+  'novevasoftwaregroup.com': 'thin',
+  'ccube.cloud': 'thin',
+}
+
+export const SEARCH_MARKET_NOTE: Record<Exclude<SearchMarket, 'normal'>, string> = {
+  none: 'No meaningful UK search demand in this category — sells through procurement or direct relationships, so a low score is not a marketing failure.',
+  thin: 'Very little UK search demand in this category. Score is capped by the size of the market, not by effort.',
+}
+
+/**
+ * The keywords actually driving each company's organic traffic, top first.
+ * Pulled 12 August 2026. Answers the obvious question a score alone cannot:
+ * what are we actually ranking for?
+ */
+export type TopKeyword = { keyword: string; position: number; traffic: number }
+
+export const TOP_KEYWORDS: Record<string, readonly TopKeyword[]> = {
+  'charitylog.co.uk': [
+    { keyword: 'charity log', position: 1, traffic: 7920 },
+    { keyword: 'charitylog', position: 1, traffic: 2880 },
+    { keyword: 'charity log login', position: 1, traffic: 2320 },
+    { keyword: 'charitylog login', position: 1, traffic: 1040 },
+    { keyword: 'charity crm', position: 3, traffic: 59 },
+  ],
+  'dizions.co.uk': [
+    { keyword: 'charity log', position: 4, traffic: 138 },
+    { keyword: 'charitylog', position: 6, traffic: 36 },
+    { keyword: 'charitylog login', position: 3, traffic: 23 },
+    { keyword: 'text anywhere', position: 4, traffic: 19 },
+    { keyword: 'somerset village agents', position: 5, traffic: 11 },
+  ],
+  'mindofmyown.org.uk': [
+    { keyword: 'mind of my own', position: 1, traffic: 800 },
+    { keyword: 'mind of my own app', position: 1, traffic: 136 },
+    { keyword: 'mindofmyown', position: 1, traffic: 88 },
+    { keyword: 'a mind of my own', position: 3, traffic: 48 },
+    { keyword: 'momo app', position: 5, traffic: 5 },
+  ],
+  'metrofy.com': [
+    { keyword: 'retail management solutions', position: 1, traffic: 871 },
+    { keyword: 'cardfactory rms metro com login', position: 4, traffic: 57 },
+    { keyword: 'card factory rms', position: 4, traffic: 38 },
+    { keyword: 'bob card factory', position: 6, traffic: 30 },
+    { keyword: 'rms metro', position: 2, traffic: 27 },
+  ],
+  'cadsonline.com': [
+    { keyword: 'cads', position: 6, traffic: 69 },
+    { keyword: 'cads planner', position: 1, traffic: 52 },
+    { keyword: 'retail space planning', position: 3, traffic: 9 },
+    { keyword: 'housing survey', position: 6, traffic: 9 },
+    { keyword: 'matterport survey', position: 4, traffic: 5 },
+  ],
+  'storespaceinsights.com': [
+    { keyword: 'retail space planning', position: 3, traffic: 7 },
+    { keyword: 'retail space planning software', position: 3, traffic: 6 },
+    { keyword: 'store planning software', position: 2, traffic: 5 },
+    { keyword: 'space planning in retail stores', position: 2, traffic: 5 },
+    { keyword: 'retail space optimization', position: 6, traffic: 4 },
+  ],
+  'crossdata.co.uk': [
+    { keyword: 'cross data', position: 1, traffic: 168 },
+    { keyword: 'crossdata', position: 1, traffic: 136 },
+    { keyword: 'h4all', position: 2, traffic: 2 },
+    { keyword: 'callready', position: 14, traffic: 0 },
+  ],
+  'schoolscreener.com': [
+    { keyword: 'schoolscreener', position: 1, traffic: 27 },
+    { keyword: 'sch portal', position: 18, traffic: 1 },
+    { keyword: 'parent viewer', position: 16, traffic: 1 },
+    { keyword: 'cranbrook portal', position: 21, traffic: 0 },
+  ],
+  'ccube.cloud': [
+    { keyword: 'ccube', position: 3, traffic: 13 },
+    { keyword: 'carecube', position: 30, traffic: 0 },
+    { keyword: 'care cube', position: 23, traffic: 0 },
+  ],
+  'novevasoftwaregroup.com': [
+    { keyword: 'ccube', position: 2, traffic: 22 },
+    { keyword: 'caivov', position: 30, traffic: 0 },
+    { keyword: 'inkva', position: 39, traffic: 0 },
+    { keyword: 'advanced computer software group ltd', position: 47, traffic: 0 },
+  ],
+  'sofco.co.uk': [
+    { keyword: 'psco ltd', position: 18, traffic: 0 },
+    { keyword: 'softco', position: 35, traffic: 0 },
+    { keyword: 'karro food', position: 21, traffic: 0 },
+    { keyword: 'nasco uk ltd', position: 53, traffic: 0 },
+  ],
+  'cadssurveys.co.uk': [
+    { keyword: 'façade surveys', position: 7, traffic: 1 },
+    { keyword: 'measured building surveys', position: 94, traffic: 0 },
+    { keyword: 'facade surveys', position: 46, traffic: 0 },
+    { keyword: '3d laser scanning services', position: 96, traffic: 0 },
+  ],
+  'prosper-design.com': [
+    { keyword: 'warings lifestore', position: 6, traffic: 2 },
+    { keyword: 'retail design company', position: 44, traffic: 0 },
+    { keyword: 'retail design firms', position: 41, traffic: 0 },
+    { keyword: 'urban design consultant milton keynes', position: 40, traffic: 0 },
+  ],
+  'metabroadcast.com': [
+    { keyword: '7.0.5', position: 9, traffic: 22 },
+    { keyword: 'metastreaming', position: 10, traffic: 15 },
+    { keyword: 'metastream', position: 49, traffic: 0 },
+    { keyword: 'broadcast.com', position: 55, traffic: 0 },
+  ],
+  'formainnovations.com': [
+    { keyword: 'forma company', position: 38, traffic: 0 },
+  ],
+}
