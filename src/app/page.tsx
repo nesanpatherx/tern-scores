@@ -2,7 +2,7 @@ import ScoreCards from '@/components/ScoreCards'
 import ScoresTable from '@/components/ScoresTable'
 import AiVisibility from '@/components/AiVisibility'
 import MethodologyNote from '@/components/MethodologyNote'
-import { PORTFOLIO, DATA_AS_OF, MEASUREMENT_START, LATEST_MONTH, H } from '@/lib/data'
+import { PORTFOLIO, DATA_AS_OF, DATA_VERIFIED, MEASUREMENT_START, LATEST_MONTH, H } from '@/lib/data'
 import { GROUP_ORDER } from '@/lib/portcos'
 import { scorePortfolio, scoreBand } from '@/lib/score'
 import { compact, signedPct, monthLabel } from '@/lib/format'
@@ -95,6 +95,7 @@ export default function Page() {
   })).filter(g => g.rows.length > 0)
 
   const asOf = new Date(DATA_AS_OF).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const verified = new Date(DATA_VERIFIED).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 
   return (
     <div className="min-h-screen" style={{ background: C.cream }}>
@@ -115,7 +116,7 @@ export default function Page() {
           </span>
         </div>
         <span className="text-[10.5px] shrink-0" style={{ color: C.muted }}>
-          {PORTFOLIO.length} companies · SEMrush, {asOf}
+          {PORTFOLIO.length} companies · SEMrush {monthLabel(LATEST_MONTH)} · verified {verified}
         </span>
       </header>
 
@@ -143,8 +144,10 @@ export default function Page() {
           </p>
           <p className="text-[12px] mt-2 leading-relaxed" style={{ color: C.muted }}>
             <strong style={{ color: C.body }}>What the numbers are.</strong> Current figures are
-            SEMrush&apos;s {monthLabel(LATEST_MONTH)} monthly reading — the last complete month — captured{' '}
-            {asOf}. They are not a partial August count. Traffic means{' '}
+            SEMrush&apos;s {monthLabel(LATEST_MONTH)} monthly reading — the last complete month it has
+            published — captured {asOf} and re-checked against the SEMrush API on {verified}, when{' '}
+            {monthLabel(LATEST_MONTH)} was still the newest month available. They are not a partial
+            August count. Traffic means{' '}
             <strong style={{ color: C.body }}>estimated visits from unpaid Google results only</strong>;
             direct, email, referral and paid visitors are not included, so a zero here does not mean a
             site had no visitors. Measured on the SEMrush UK database except where a row says otherwise.

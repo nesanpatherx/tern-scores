@@ -23,6 +23,15 @@ export const LATEST_MONTH = '2026-07'
 export const BASELINE_MONTH = '2026-01'
 
 /**
+ * Last date the figures were re-checked against the SEMrush API. On 14 Aug 2026 the
+ * July reading was confirmed unchanged and July was still the newest month SEMrush
+ * had published — it recalculates monthly, so there is nothing more recent to show.
+ * Update this whenever the data is re-verified, even if no numbers move; it is the
+ * difference between "current" and "nobody has looked".
+ */
+export const DATA_VERIFIED = '2026-08-14'
+
+/**
  * The month active measurement and optimisation work began across the portfolio.
  * Movement before this point predates any of that work, so the page reports change
  * since this month alongside the full year-to-date figure — otherwise a Q1 decline
